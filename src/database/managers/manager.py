@@ -33,3 +33,7 @@ class BaseDatabase(SessionMixin):
 
     def get_all(self, select_stmt: Executable) -> List[Any]:
         return list(self.session.scalars(select_stmt).all())
+    
+    def delete_one(self, model: Any) -> None:
+        self.session.delete(model)
+        self.session.commit()

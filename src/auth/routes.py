@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.exceptions import HTTPException
 
 # Model and Service imports
-from .models import TokenSchema, OTPVerifyRequest, OTPResponse, SignUpForm
+from .models import (
+    TokenSchema,
+    OTPVerifyRequest, OTPResponse,
+    SignUpForm, BasicSignUpForm, LoginRequest, AdminForm
+)
 from .service import AuthService
 
 # Database and Manager imports
@@ -11,42 +15,109 @@ from ..database.sessions import create_session
 
 router = APIRouter()
 """
-    /token -> POST to generate token (login)
+    /login -> POST to generate token
     /signup -> POST to register a new user
+    /signup_potential_user -> POST to register a new potential user
+    /resend-otp -> GET to regenerate otp for the required user
     /verify-otp -> POST to verify the user's OTP (returns the token with it)
 """
 
-@router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def registerUser(
-    payload: SignUpForm = Depends(),
+@router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=TokenSchema,
+             name="Step 3: Sign up new user")
+async def signup(
+    payload: SignUpForm,
     session: Session = Depends(create_session)
-) -> None:
+) -> TokenSchema:
     service = AuthService(session)
-    service.create_user(payload)
+    if not service.cross_validate_otp(payload.phone_number, payload.otp):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid otp"
+        )
+    await service.create_user(payload)
+    token: str = service.create_access_token(payload.email)
+    return TokenSchema(
+        access_token=token,
+        token_type="Bearer"
+    )
 
-@router.post("/token", response_model=TokenSchema)
-async def generateToken(
-    AuthForm: OAuth2PasswordRequestForm = Depends(),
+@router.post("/potential_user", status_code=status.HTTP_201_CREATED, 
+             response_model=TokenSchema, name="Step 1: register a user")
+async def register_temp_user(
+   payload: BasicSignUpForm,
+   session: Session = Depends(create_session)
+) -> TokenSchema:
+    service = AuthService(session)
+    user_exists: bool = service.user_exists(payload.email)
+    if user_exists:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user already exists"
+        )
+    service.create_temp_user(payload, "5678")
+    # return the otp to the client
+    return TokenSchema(
+        access_token="5678",
+        token_type="otp"
+    )
+    
+
+@router.post("/login", response_model=TokenSchema)
+async def login(
+    AuthForm: LoginRequest,
     session: Session = Depends(create_session),
 ) -> TokenSchema | None:
    """
    Creates a JWT Token for the user and returns it
    Mainly for login functionality
    
-   :param AuthForm: Form accepting username and password
-   :type AuthForm: OAuth2PasswordRequestForm
+   :param AuthForm: Form accepting email and password
+   :type AuthForm: LoginRequest
    :param session: Scoped session for DB operations
    :type session: Session
    :return: Token object with acces_token and toke_type
    :rtype: TokenSchema | None
    """
    return AuthService(session).authenticate(
-      AuthForm.username, AuthForm.password
+      AuthForm.email, AuthForm.password
     )
 
-@router.post("/verify-otp", response_model=OTPResponse, status_code=status.HTTP_200_OK)
-async def verifyUser(
-    payload: OTPVerifyRequest = Depends(),
+
+@router.get("/resend-otp", response_model=TokenSchema, status_code=status.HTTP_200_OK)
+async def resend_otp(
+    identifier: str,
+    is_email: bool = False,
+    session: Session = Depends(create_session),
+) -> TokenSchema:
+    """
+    Re-generates new OTP for the potential user
+    
+    :param session: Description
+    :type session: Session
+    :param payload: user credentials to generate another OTP
+    :type payload: OTPVerifyRequest
+    :return: New OTP for the user requested
+    :rtype: TokenSchema
+    """
+    success = await AuthService(session).regenerate_otp(
+        identifier,
+        is_email
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="could not regenerate otp. user does not exist"
+        )
+    return TokenSchema(
+        access_token="5678",
+        token_type="Bearer"
+    )
+
+
+@router.put("/verify-otp", response_model=OTPResponse, status_code=status.HTTP_200_OK,
+             name="Step 2: Verify the OTP")
+async def verify_otp(
+    payload: OTPVerifyRequest,
     session: Session = Depends(create_session),
 ) -> OTPResponse:
     """
@@ -60,22 +131,35 @@ async def verifyUser(
     :rtype: OTPResponse
     """
     service = AuthService(session)
-    result = service.verify_otp(
+    email = service.verify_otp(
         payload.identifier, 
         payload.is_email, 
         payload.otp
     )
     
-    if result is None:
+    if email is None:
         return OTPResponse(message="OTP verification failed", token=None)
     
-    (username, email) = result
-    token = service.create_access_token(username, email)
+    
     return OTPResponse(
         message="User verified successfully",
-        token=TokenSchema(
-            access_token=token,
-            token_type="bearer"
-        )
+        token=None
     )
-   
+
+
+admin_router = APIRouter(
+)
+
+@admin_router.post("/", status_code=status.HTTP_201_CREATED, response_model=TokenSchema)
+async def create_superadmin(
+    form: AdminForm,
+    session: Session = Depends(create_session)
+) -> TokenSchema:
+    service =  AuthService(session)
+    await service.create_admin(form)
+    access_token: str = service.create_access_token(form.email)
+
+    return TokenSchema(
+        access_token=access_token,
+        token_type="Bearer"
+    )

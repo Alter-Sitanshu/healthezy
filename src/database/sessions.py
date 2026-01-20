@@ -3,7 +3,6 @@ from typing import Iterator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from ..settings import get_settings
-from src.exceptions import SessionException
 
 settings = get_settings()
 
@@ -35,7 +34,7 @@ def create_session() -> Iterator[Session]:
         # TODO: add Logging feature
         print(e)
         # logger.error(f"session error: {e}")
-        raise SessionException(str(e))
+        raise
     finally:
         session.close()
     
