@@ -7,7 +7,7 @@ class SignUpForm(BaseModel):
     first_name: str
     last_name: str
     password: Annotated[str, StringConstraints(min_length=8)]
-    otp: Annotated[str, StringConstraints(max_length=4, min_length=4)]
+    # otp: Annotated[str, StringConstraints(max_length=4, min_length=4)]
 
 class TokenSchema(BaseModel):
     access_token: str

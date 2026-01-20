@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, status
-from fastapi.exceptions import HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException
 
 # Model and Service imports
 from .models import (
     TokenSchema,
     OTPVerifyRequest, OTPResponse,
-    SignUpForm, BasicSignUpForm, LoginRequest, AdminForm
+    SignUpForm, BasicSignUpForm, 
+    LoginRequest, AdminForm
 )
 from .service import AuthService
 
@@ -23,17 +23,12 @@ router = APIRouter()
 """
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=TokenSchema,
-             name="Step 3: Sign up new user")
+             name="Step 1: Sign up new user")
 async def signup(
     payload: SignUpForm,
     session: Session = Depends(create_session)
 ) -> TokenSchema:
     service = AuthService(session)
-    if not service.cross_validate_otp(payload.phone_number, payload.otp):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid otp"
-        )
     await service.create_user(payload)
     token: str = service.create_access_token(payload.email)
     return TokenSchema(
@@ -42,7 +37,7 @@ async def signup(
     )
 
 @router.post("/potential_user", status_code=status.HTTP_201_CREATED, 
-             response_model=TokenSchema, name="Step 1: register a user")
+             response_model=TokenSchema, name="Step 1: register a user", deprecated=True)
 async def register_temp_user(
    payload: BasicSignUpForm,
    session: Session = Depends(create_session)
@@ -78,12 +73,18 @@ async def login(
    :return: Token object with acces_token and toke_type
    :rtype: TokenSchema | None
    """
-   return AuthService(session).authenticate(
-      AuthForm.email, AuthForm.password
-    )
+   try:
+        return AuthService(session).authenticate(
+            AuthForm.email, AuthForm.password
+        )
+   except:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="email or password incorrect"
+        )     
 
 
-@router.get("/resend-otp", response_model=TokenSchema, status_code=status.HTTP_200_OK)
+@router.get("/resend-otp", response_model=TokenSchema, status_code=status.HTTP_200_OK, deprecated=True)
 async def resend_otp(
     identifier: str,
     is_email: bool = False,
@@ -115,7 +116,7 @@ async def resend_otp(
 
 
 @router.put("/verify-otp", response_model=OTPResponse, status_code=status.HTTP_200_OK,
-             name="Step 2: Verify the OTP")
+             name="Step 2: Verify the OTP", deprecated=True)
 async def verify_otp(
     payload: OTPVerifyRequest,
     session: Session = Depends(create_session),
@@ -147,8 +148,7 @@ async def verify_otp(
     )
 
 
-admin_router = APIRouter(
-)
+admin_router = APIRouter()
 
 @admin_router.post("/", status_code=status.HTTP_201_CREATED, response_model=TokenSchema)
 async def create_superadmin(
