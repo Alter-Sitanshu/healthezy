@@ -13,9 +13,11 @@ from .response_models import (
     HospitalResponse
 )
 from datetime import datetime, date, time
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from decimal import Decimal
 
+if TYPE_CHECKING:
+    from .users import User
 
 
 class Patient(Base):
@@ -27,7 +29,7 @@ class Patient(Base):
 
     # patient details
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    middle_name: Mapped[str] = mapped_column(String(100), nullable=True)
+    middle_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True)
     phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -67,9 +69,14 @@ class Patient(Base):
 
     # patient activity records
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    created_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
-    updated_by: Mapped[str] = mapped_column(String(100))
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+
+    creator: Mapped["User"] = relationship(
+        "User", 
+        back_populates="registered_patients"
+    )
 
     __table_args__ = (
         Index("idx_patient_code", "patient_code"),
@@ -319,7 +326,7 @@ class Appointment(Base):
     visit_type: Mapped[str] = mapped_column(String(50), nullable=False)
     booking_type: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="SCHEDULED")
-    appointment_mode: Mapped[str] = mapped_column(String(20), default="SCHEDULED", comment='SCHEDULED, QUEUE, BLOCK, CONCURRENT')
+    # appointment_mode: Mapped[str] = mapped_column(String(20), default="SCHEDULED", comment='SCHEDULED, QUEUE, BLOCK, CONCURRENT')
     reason_for_visit: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     token_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -330,9 +337,9 @@ class Appointment(Base):
     consultation_ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    created_by: Mapped[str] = mapped_column(String(100))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
-    updated_by: Mapped[str] = mapped_column(String(100))
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
     # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 

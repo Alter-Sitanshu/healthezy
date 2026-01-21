@@ -67,6 +67,16 @@ class UserManager(BaseDatabase):
 
         return model
 
+    def get_user_by_id(self, id: int) -> User:
+        model = self.get_one(
+            select(User).where(
+                User.id == id
+            )
+        )
+        if model is None:
+            raise ManagerException("User", f"user with id<{id}> does not exist")
+        return model
+
     def get_tenant(self, tenant_id: int) -> TenantResponse | None:
         """
         Docstring for get_tenant
@@ -127,6 +137,7 @@ class UserManager(BaseDatabase):
         model.soft_delete()
         self.session.commit()
         return True
+    
     def update_user(self, user_id: int, payload: UserUpdateForm) -> None:
         """
         Updates a user details which are permissible
@@ -162,6 +173,7 @@ class UserManager(BaseDatabase):
             select(User).where(
                and_(
                    User.id == id,
+                   User.role == "hospital_admin"
                )
             )
         )

@@ -1,11 +1,15 @@
 from .base import Base
 from sqlalchemy import String, Boolean, DateTime, BigInteger, Index, Text, Integer, UniqueConstraint
 from sqlalchemy.sql import func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone
 from .response_models import (
     UserResponse, TempUser, TenantResponse
 )
+
+from typing import List, TYPE_CHECKING
+if TYPE_CHECKING:
+    from .tenants import Patient
 
 
 # ------- DATABASE MODELS -------
@@ -46,6 +50,12 @@ class User(Base):
         nullable=False,
         default=func.now(),
         onupdate=func.now(),
+    )
+
+    # realtionships
+    registered_patients: Mapped[List["Patient"]] = relationship(
+        "Patient", 
+        back_populates="creator"
     )
 
     __table_args__ = (

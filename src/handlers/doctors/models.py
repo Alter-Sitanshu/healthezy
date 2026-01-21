@@ -1,6 +1,6 @@
 from pydantic import (
     BaseModel, StringConstraints, EmailStr, NonNegativeInt,
-    Field, field_validator, ValidationInfo
+    Field, field_validator, ValidationInfo, ValidationError
 )
 from typing import Annotated, Literal, Optional
 from decimal import Decimal
@@ -92,7 +92,7 @@ class ScheduleExcPayload(BaseModel):
             if 'start_time' in info.data:
                 start_time = info.data['start_time']
                 if v <= start_time:
-                    raise ValueError('end_time must be after start_time')
+                    raise ValidationError('end_time must be after start_time')
             return v
     
     @field_validator('exception_date')
@@ -105,16 +105,16 @@ class ScheduleExcPayload(BaseModel):
         ))
 
         if today > target_date:
-            raise ValueError('exception_date cannot be before current date')
+            raise ValidationError('exception_date cannot be before current date')
         
 
 class UpdateException(BaseModel):
-    exception_date: date
-    is_available: bool
+    exception_date: Optional[date]
+    is_available: Optional[bool]
     start_time: Optional[time]
     end_time: Optional[time]
 
-    reason: str
+    reason: Optional[str]
 
     @field_validator('end_time')
     @classmethod
@@ -124,7 +124,7 @@ class UpdateException(BaseModel):
             if 'start_time' in info.data:
                 start_time = info.data['start_time']
                 if v <= start_time:
-                    raise ValueError('end_time must be after start_time')
+                    raise ValidationError('end_time must be after start_time')
             return v
     
     @field_validator('exception_date')
@@ -137,7 +137,7 @@ class UpdateException(BaseModel):
         ))
 
         if today > target_date:
-            raise ValueError('exception_date cannot be before current date')
+            raise ValidationError('exception_date cannot be before current date')
 
 
 class Slot(BaseModel):

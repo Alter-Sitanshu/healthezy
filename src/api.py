@@ -13,6 +13,8 @@ from .handlers.doctors.doctor_schedules.routes import router as schedule_router
 from .handlers.hospitals.routes import router as hospital_router
 from .handlers.tenants.routes import router as tenant_router
 from .handlers.doctors.doctor_schedules.exception_routes import router as schedule_exc_router
+from .handlers.appointments.routes import router as appointment_router
+from .handlers.patients.routes import router as patient_router
 
 # Global consts
 settings: Settings = get_settings()
@@ -75,6 +77,18 @@ app.include_router(
     router=schedule_router,
     prefix="/schedules",
     tags=["Doctor Schedule"]
+)
+
+app.include_router(
+    router=appointment_router,
+    prefix="/appoinments",
+    tags=["Appointment"]
+)
+
+app.include_router(
+    router=patient_router,
+    prefix="/patients",
+    tags=["Patient"]
 )
 
 app.include_router(
