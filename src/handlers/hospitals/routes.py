@@ -76,6 +76,13 @@ async def delete_hospital(
             detail=f"could not delete hospital <{hospital_code}>"
         )
 
+@router.get("/", status_code=status.HTTP_200_OK, response_model=List[HospitalResponse])
+async def get_all_hospitals(
+    session: Session = Depends(create_session)
+) -> List[HospitalResponse]:
+    
+    return HospitalService(session).get_hospitals()
+
 
 @router.get("/code/{hospital_code}", response_model=HospitalResponse, status_code=status.HTTP_200_OK)
 async def get_hospital_by_code(

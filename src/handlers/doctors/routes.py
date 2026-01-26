@@ -123,6 +123,13 @@ async def login_doctor(
 
     return schema
 
+@router.get("/", response_model=List[DoctorResponse], status_code=status.HTTP_200_OK)
+async def get_all_doctors(
+    session: Session = Depends(create_session)
+) -> List[DoctorResponse]:
+    
+    return DoctorService(session).get_all()
+
 
 @router.get("/specialization/{specialization}", response_model=List[DoctorResponse],
             status_code=status.HTTP_200_OK)

@@ -84,7 +84,9 @@ class DoctorService(SessionMixin, HashingMixin):
         doc.password = self.encrypt(new)
         self.session.commit()
         
+    def get_all(self) -> List[DoctorResponse]:
 
+        return self._doctor_manager.get_all_doctors()
 
     def get_doctor_from_token(self, token: str) -> DoctorResponse | None:
         try:

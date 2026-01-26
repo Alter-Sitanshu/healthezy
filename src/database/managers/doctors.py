@@ -14,6 +14,13 @@ class DoctorManager(BaseDatabase):
     def __init__(self, session: Session) -> None:
         super().__init__(session)
         self.adapter = TypeAdapter(List[DoctorResponse])
+
+    def get_all_doctors(self) -> List[DoctorResponse]:
+        model_list = self.get_all(
+            select(Doctor)
+        )
+
+        return self.adapter.validate_python(model_list)
     
     def add_doctor(self, doctor: Doctor) -> DoctorResponse:
         """

@@ -65,6 +65,11 @@ class HospitalManager(BaseDatabase):
         
         return hospital.to_response()
     
+    def get_all_hospitals(self) -> List[Hospital]:
+        return self.get_all(
+            select(Hospital)
+        )
+
     def update(self, payload: dict[str, Any], hospital_code: str) -> None:
         """
         Updates the target hospital's details. If not found raise exception

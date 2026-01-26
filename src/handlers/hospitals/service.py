@@ -58,6 +58,10 @@ class HospitalService(SessionMixin):
     def get_hospital_by_id(self, id: int) -> HospitalResponse | None:
         return self._hospital_manager.get_hospital_by_id(id)
     
+    def get_hospitals(self) -> List[HospitalResponse]:
+        res: List[Hospital] = self._hospital_manager.get_all_hospitals()
+        return self.adapter.validate_python(res)
+
     def get_hospital_by_code(self, hospital_code: str) -> HospitalResponse | None:
         return self._hospital_manager.get_hospital_by_code(hospital_code)
     
