@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     secret_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     otp_expire_minutes: int = 1
+    admin_secret: str = Field(default="", description="Admin Login secret", min_length=32, max_length=32)
     
     # API settings
     api_prefix: str = "/api/v1"

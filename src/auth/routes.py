@@ -57,7 +57,8 @@ async def register_temp_user(
     )
     
 
-@router.post("/login", response_model=TokenSchema)
+@router.post("/login", response_model=TokenSchema,
+            description="role can be user, hospital-admin, or doctor")
 async def login(
     AuthForm: LoginRequest,
     session: Session = Depends(create_session),
@@ -66,7 +67,7 @@ async def login(
    Creates a JWT Token for the user and returns it
    Mainly for login functionality
    
-   :param AuthForm: Form accepting email and password
+   :param AuthForm: Form accepting role, email and password
    :type AuthForm: LoginRequest
    :param session: Scoped session for DB operations
    :type session: Session
@@ -74,7 +75,9 @@ async def login(
    :rtype: TokenSchema | None
    """
    try:
-        return AuthService(session).authenticate(
+        service = AuthService(session)
+        return service.authenticate(
+            AuthForm.role,
             AuthForm.email, AuthForm.password
         )
    except:

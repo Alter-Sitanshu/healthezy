@@ -69,19 +69,20 @@ class Patient(Base):
 
     # patient activity records
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="fk_patient_creator"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
-    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="fk_patient_updator"), nullable=False)
 
     creator: Mapped["User"] = relationship(
         "User", 
-        back_populates="registered_patients"
+        back_populates="registered_patients",
+        foreign_keys=[created_by]
     )
 
     __table_args__ = (
         Index("idx_patient_code", "patient_code"),
         # Index("idx_tenant_id", "tenant_id"),
-        Index("idx_email", "email"),
+        Index("idx_patients_email", "email"),
         Index("idx_phone", "phone_number")
     )
 
@@ -153,9 +154,9 @@ class Doctor(Base):
     # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="doctor_created_by"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
-    updated_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    updated_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", name="doctor_updated_by"), nullable=True)
     
     # Relationships
     department: Mapped[Optional["Department"]] = relationship("Department", back_populates="doctors")
@@ -169,9 +170,9 @@ class Doctor(Base):
     __table_args__ = (
         Index("idx_doctor_code", "doctor_code"),
         # Index("idx_tenant_id", "tenant_id"),
-        Index("idx_email", "email"),
+        Index("idx_doctors_email", "email"),
         Index("idx_specialization", "specialization"),
-        Index("idx_status", "status"),
+        Index("idx_doctors_status", "status"),
         Index("idx_department_id", "department_id")
     )
 
@@ -215,7 +216,7 @@ class DoctorSchedule(Base):
     doctor: Mapped["Doctor"] = relationship("Doctor", back_populates="schedules")
    
     __table_args__ = (
-        Index("idx_doctor_id", "doctor_id"),
+        Index("idx_ds_doctor_id", "doctor_id"),
         # Index("idx_tenant_id", "tenant_id"),
         Index("idx_day", "day_of_week")
     )
@@ -244,7 +245,7 @@ class DoctorScheduleExceptions(Base):
     doctor: Mapped["Doctor"] = relationship("Doctor", back_populates="schedule_exceptions")
     
     __table_args__ = (
-        Index("idx_doctor_id", "doctor_id"),
+        Index("idx_dse_doctor_id", "doctor_id"),
         # Index("idx_tenant_id", "tenant_id"),
         Index("idx_leave_date", "exception_date"),
         # UniqueConstraint("doctor_id", "exception_date", "tenant_id", name="unique_doctor_date")
@@ -290,9 +291,9 @@ class Hospital(Base):
     # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="hospitals_created_by"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
-    update_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    update_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="hospitals_updated_by"), nullable=True)
 
     # Relationships
     doctors: Mapped[List["Doctor"]] = relationship("Doctor", back_populates="hospital")
@@ -337,9 +338,9 @@ class Appointment(Base):
     consultation_ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="fk_appointmnent_creator"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
-    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="fk_appointment_updator"), nullable=False)
 
     # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
@@ -349,10 +350,10 @@ class Appointment(Base):
     __table_args__ = (
         Index("idx_appointment_number", "appointment_number"),
         Index("idx_patient_id", "patient_id"),
-        Index("idx_doctor_id", "doctor_id"),
+        Index("idx_appointments_doctor_id", "doctor_id"),
         # Index("idx_tenant_id", "tenant_id"),
         Index("idx_appointment_date", "appointment_date"),
-        Index("idx_status", "status")
+        Index("idx_appointments_status", "status")
     )
 
     def to_response(self) -> AppointmentResponse:

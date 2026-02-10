@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -22,6 +22,22 @@ class DoctorManager(BaseDatabase):
 
         return self.adapter.validate_python(model_list)
     
+    def get_doctor(self, email: str) -> Doctor | None:
+        """
+        Docstring for get_doctor
+        
+        :param email: Doctor's email address
+        :type email: str
+        :return: Doctor object if found or else None
+        :rtype: Doctor | None
+        """
+
+        return self.get_one(
+            select(Doctor).where(
+                Doctor.email == email
+            )
+        )
+
     def add_doctor(self, doctor: Doctor) -> DoctorResponse:
         """
         add_doctor inserts a new doctor entry in the doctors table
@@ -78,8 +94,15 @@ class DoctorManager(BaseDatabase):
         doctors: List[Doctor] = self.get_all(select(Doctor).where(Doctor.experience_years >= exp))
         return self.adapter.validate_python(doctors)
     
-    def delete(self, id: int) -> None:
-        target: Doctor | None = self.get_one(select(Doctor).where(Doctor.id == id))
+    def delete(self, admin_id: int, id: int) -> None:
+        target: Doctor | None = self.get_one(
+            select_stmt=select(Doctor).where(
+                and_(
+                    Doctor.id == id,
+                    Doctor.hospital.has(created_by=admin_id)
+                )
+            )
+        )
         if target is None:
             raise ManagerException("Doctor", f"could not delete doctor. not found <Id:{id}>")
         

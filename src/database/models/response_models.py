@@ -28,8 +28,6 @@ class UserResponse(BaseResponse):
     
     # Linked Entity IDs (Nullable)
     hospital_id: Optional[int] = None
-    doctor_id: Optional[int] = None
-    patient_id: Optional[int] = None
 
     # Status Flags
     is_active: bool
@@ -90,7 +88,7 @@ class PatientResponse(BaseResponse):
 
     email: Optional[EmailStr] = None
     phone_number: str
-    date_of_birth: datetime
+    date_of_birth: date
     age: Optional[int] = None
     gender: str
     blood_group: Optional[str] = None
@@ -121,7 +119,7 @@ class PatientResponse(BaseResponse):
     # insurance
     insurance_provider: Optional[str] = None
     insurance_policy_number: Optional[str] = None
-    insurance_expiry_date: Optional[datetime] = None
+    insurance_expiry_date: Optional[date] = None
 
     # tenant_id: int
 
@@ -175,7 +173,7 @@ class DoctorResponse(BaseResponse):
     id: int
     doctor_code: str
     password: Optional[str] = None
-    first_login: bool
+    first_login: bool = False
     first_name: str
     middle_name: Optional[str] = None
     last_name: str

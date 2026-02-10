@@ -13,13 +13,16 @@ from datetime import timezone, datetime, timedelta
 from sqlalchemy.orm import Session
 from .models import SignUpForm, TokenSchema, BasicSignUpForm, AdminForm
 from ..database.managers.users import UserManager
+from ..database.managers.doctors import DoctorManager
 from ..database.models.response_models import UserResponse#, TenantResponse
 from ..database.models.users import User, PotentialUsers
+from ..database.models.tenants import Doctor
 from ..database.managers.manager import SessionMixin
 
 
 settings = get_settings() #load the env
 TOKEN_SECRET: str = settings.secret_key
+ADMIN_SECRET: str = settings.admin_secret
 TOKEN_EXPIRY_MINUTES: int = settings.access_token_expire_minutes # By default 30mins
 TOKEN_TYPE: str = "Bearer" #By default taking Bearer JWT tokens
 TOKEN_ALGORITHM: str = settings.secret_algorithm
@@ -63,6 +66,7 @@ class AuthService(SessionMixin, HashingMixin):
     def __init__(self, session: Session) -> None:
         super().__init__(session)
         self._user_manager = UserManager(session)
+        self._doctor_manager = DoctorManager(session)
 
     async def create_user(self, payload: SignUpForm) -> UserResponse:
         temp_user = self._user_manager.potential_user(payload.email)
@@ -75,12 +79,17 @@ class AuthService(SessionMixin, HashingMixin):
             first_name=payload.first_name,
             last_name=payload.last_name,
             phone_number=payload.phone_number,
-            role="user",
+            role=payload.role,
             phone_verified=True,
         )
         return self._user_manager.add_user(user_model)
     
     async def create_admin(self, payload: AdminForm) -> None:
+        if payload.admin_secret != ADMIN_SECRET:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="access denied. unauthorised"
+            )
         user_model = User(
             # tenant_id=USER_TENANT_ID,
             email=payload.email,
@@ -93,19 +102,6 @@ class AuthService(SessionMixin, HashingMixin):
             is_superuser=True,
         )
         self._user_manager.add_user(user_model)
-    
-    async def create_hospital_admin(self, payload: AdminForm) -> UserResponse:
-        user_model = User(
-            # tenant_id=tenant_id,
-            email=payload.email,
-            password=self.encrypt(payload.password),
-            first_name=payload.first_name,
-            last_name=payload.last_name,
-            phone_number=payload.phone_number,
-            role="hospital-admin",
-            phone_verified=True,
-        )
-        return self._user_manager.add_user(user_model)
 
     # def get_tenant(self, tenant_id: int) -> TenantResponse | None:
     #     return self._user_manager.get_tenant(tenant_id)
@@ -140,25 +136,41 @@ class AuthService(SessionMixin, HashingMixin):
         user: User | None = self._user_manager.get_user(email)
         return not (user is None)
     
-    def authenticate(self, email: str, password: str) -> TokenSchema | None:
-        user: User | None = self._user_manager.get_user(email)
+    def authenticate(self, role: str, email: str, password: str) -> TokenSchema | None:
         cred_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                     detail="username or password incorrect",
                                     headers={"WWW-Authenticate": "Bearer"},
                                     )
-        if user is None or not user.is_active or (not user.email_verified and not user.phone_verified):
-            # either user not found, or not active or (nothing is verified)
-            raise cred_exception
+        if role != "doctor":
+            user: User | None = self._user_manager.get_user(email)
+            if user is None or not user.is_active or (not user.email_verified and not user.phone_verified):
+                # either user not found, or not active or (nothing is verified)
+                raise cred_exception
         
-        if not self.verify(password, user.password):
-            raise cred_exception
+            if not self.verify(password, user.password):
+                raise cred_exception
+            else:
+                access_token = self.create_access_token(user.email)
+                return TokenSchema(
+                    access_token=access_token,
+                    token_type=TOKEN_TYPE
+                )
         else:
-            access_token = self.create_access_token(user.email)
-            return TokenSchema(
-                access_token=access_token,
-                token_type=TOKEN_TYPE
-            )
-    
+            doctor: Doctor | None = self._doctor_manager.get_doctor(email)
+        
+            if doctor is None or not doctor.status.lower() != "active":
+                # either user not found, or not active or (nothing is verified)
+                raise cred_exception
+            
+            if not self.verify(password, doctor.password):
+                raise cred_exception
+            else:
+                access_token = self.create_access_token(doctor.email)
+                return TokenSchema(
+                    access_token=access_token,
+                    token_type="Bearer"
+                )
+
     
     def get_user_from_token(self, token: str) -> UserResponse | None:
         try:

@@ -29,11 +29,6 @@ class NewDoctorForm(BaseModel):
     department_id: int | None
     hospital_id: int | None
 
-
-class DoctorLoginRequest(BaseModel):
-    doctor_code: str
-    password: str
-
 class ResetPasswordForm(BaseModel):
     old_password: str
     new_password: Annotated[str, StringConstraints(min_length=8)]

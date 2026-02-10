@@ -10,16 +10,13 @@ from sqlalchemy.orm import Session
 
 # model imports
 from .models import NewDoctorForm, SchedulePayload, Slot, ScheduleExcPayload, UpdateException
-from ...auth.models import TokenSchema
 from ...settings import get_settings
 
 # util imports
-from fastapi.exceptions import HTTPException
-from fastapi import status
 from ...auth.service import HashingMixin
 from uuid import uuid4
 from typing import List, Any, Final
-from datetime import time, timedelta, datetime
+from datetime import time, timedelta, datetime, timezone
 import secrets
 import jwt
 
@@ -42,10 +39,12 @@ def add_time_delta(t: time, delta: timedelta) -> time:
     :type t: time
     :param delta: delta time difference to add to base time
     :type delta: timedelta
-    :return: Resultant time object
+    :return: Resultant time object (timezone-naive)
     :rtype: time
     """
-    base_date: datetime = datetime.combine(datetime.today(),  t)
+    if t.tzinfo is not None:
+        t = t.replace(tzinfo=None)
+    base_date: datetime = datetime.combine(datetime.today(), t)
     return (base_date + delta).time()
 
 class DoctorService(SessionMixin, HashingMixin):
@@ -53,25 +52,6 @@ class DoctorService(SessionMixin, HashingMixin):
         super().__init__(session)
         self._doctor_manager = DoctorManager(session)
         self._schedule_manager = ScheduleManager(session)
-
-    def authenticate(self, code: str, password: str) -> TokenSchema | None:
-        doctor: Doctor | None = self._doctor_manager.get_doctor_by_code(code)
-        cred_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                    detail="username or password incorrect",
-                                    headers={"WWW-Authenticate": "Bearer"},
-                                    )
-        if doctor is None or not doctor.status.lower() != "active":
-            # either user not found, or not active or (nothing is verified)
-            raise cred_exception
-        
-        if not self.verify(password, doctor.password):
-            raise cred_exception
-        else:
-            access_token = self.create_access_token(doctor.doctor_code)
-            return TokenSchema(
-                access_token=access_token,
-                token_type="Bearer"
-            )
 
     def reset_password(self, id: int, old: str, new: str) -> None:
         doc: Doctor | None = self._doctor_manager.get_doctor_by_id(id)
@@ -95,7 +75,7 @@ class DoctorService(SessionMixin, HashingMixin):
                 algorithms=[TOKEN_ALGORITHM],
                 options={"verify_exp": True}
             )
-            user: Doctor | None = self._doctor_manager.get_doctor_by_code(payload["sub"])
+            user: Doctor | None = self._doctor_manager.get_doctor(payload["sub"])
             if not user:
                 return None
             return user.to_response(exclude_sensitive=True)
@@ -156,9 +136,9 @@ class DoctorService(SessionMixin, HashingMixin):
     def get_doctor_by_experience(self, exp: int) ->List[DoctorResponse]:
         return self._doctor_manager.get_doctors_by_experience(exp)
     
-    def delete_doctor(self, doctor_id: int) -> None:
+    def delete_doctor(self, admin_id: int, doctor_id: int) -> None:
         try:
-            self._doctor_manager.delete(doctor_id)
+            self._doctor_manager.delete(admin_id, doctor_id)
         except Exception as e:
             raise ValueError(str(e))
     
@@ -204,14 +184,25 @@ class DoctorService(SessionMixin, HashingMixin):
     def retrieve_slots(cls, schedule: DoctorScheduleResp) -> List[Slot]:
         start: time = schedule.start_time
         end: time = schedule.end_time
+         # Convert to naive if timezone-aware
+        if start.tzinfo is not None:
+            start = start.replace(tzinfo=None)
+        if end.tzinfo is not None:
+            end = end.replace(tzinfo=None)
+            
+        IST = timezone(timedelta(hours=5, minutes=30))
+
         delta: timedelta = timedelta(minutes=(schedule.slot_duration + schedule.buffer_time_minutes))
-        now_: time = datetime.now().time()
+        now_dt = datetime.now(IST)
+        now_: time = now_dt.time()
+
+        now_ = now_.replace(tzinfo=None)
         slot_list: List[Slot] = []
         next_: time
 
         day_of_week: str = schedule.day_of_week.lower()
         day_: int = WEEK_DAY[day_of_week[:3]]
-        today_: int = datetime.now().weekday()
+        today_: int = now_dt.weekday()
 
 
         while start < end:

@@ -11,6 +11,7 @@ from .handlers.users.routes import router as user_router
 from .handlers.doctors.routes import router as doctor_router
 from .handlers.doctors.doctor_schedules.routes import router as schedule_router
 from .handlers.hospitals.routes import router as hospital_router
+from .handlers.hospitals.admin.routes import router as provider_admin_router
 from .handlers.tenants.routes import router as tenant_router
 from .handlers.doctors.doctor_schedules.exception_routes import router as schedule_exc_router
 from .handlers.appointments.routes import router as appointment_router
@@ -44,7 +45,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # TODO: change this to domain later
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-TenantID"],
     expose_headers=["*"],
 )
@@ -101,6 +102,12 @@ app.include_router(
     router=hospital_router,
     prefix="/hospitals",
     tags=["Hospital"]
+)
+
+app.include_router(
+    router=provider_admin_router,
+    prefix="/provider_admin",
+    tags=["Provider Admin"]
 )
 
 app.include_router(

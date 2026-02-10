@@ -47,13 +47,15 @@ async def get_patient_details(
             current_user.id, patient_id
         )
         return response
-    except:
+    except HTTPException as he:
+        raise he
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="could not fetch patient details"
+            detail=f"could not fetch patient details: {str(e)}"
         )
     
-@router.delete("/{patient_code}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_patient(
     request: Request,
     patient_id: int,
@@ -83,10 +85,11 @@ async def update_patient_details(
             detail=str(e)
         )
     
-@router.get("/all", status_code=status.HTTP_200_OK, response_model=List[PatientResponse])
+@router.get("/all", status_code=status.HTTP_200_OK, response_model=List[PatientResponse],
+        dependencies=[Depends(enforce_admin_privilege)]        
+    )
 async def get_all_patients(
     request: Request,
-    _: None = Depends(enforce_admin_privilege),
     session: Session = Depends(create_session)
 ) -> List[PatientResponse]:
     

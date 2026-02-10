@@ -26,22 +26,26 @@ def upgrade() -> None:
     op.alter_column('doctors', 'created_by',
                existing_type=mysql.VARCHAR(length=100),
                type_=sa.BigInteger(),
-               existing_nullable=False)
+               existing_nullable=False,
+               postgresql_using='created_by::bigint')
     op.alter_column('doctors', 'updated_by',
                existing_type=mysql.VARCHAR(length=100),
                type_=sa.BigInteger(),
-               existing_nullable=True)
+               existing_nullable=True,
+               postgresql_using='updated_by::bigint')
     op.create_foreign_key('doctor_updated_by', 'doctors', 'users', ['updated_by'], ['id'])
     op.create_foreign_key('doctor_created_by', 'doctors', 'users', ['created_by'], ['id'])
     op.add_column('hospitals', sa.Column('is24x7', sa.Boolean(), nullable=False))
     op.alter_column('hospitals', 'created_by',
                existing_type=mysql.VARCHAR(length=100),
                type_=sa.BigInteger(),
-               existing_nullable=False)
+               existing_nullable=False,
+               postgresql_using='created_by::bigint')
     op.alter_column('hospitals', 'update_by',
                existing_type=mysql.VARCHAR(length=100),
                type_=sa.BigInteger(),
-               nullable=True)
+               existing_nullable=True,
+               postgresql_using='update_by::bigint')
     op.create_foreign_key('hospitals_created_by', 'hospitals', 'users', ['created_by'], ['id'])
     op.create_foreign_key('hospitals_updated_by', 'hospitals', 'users', ['update_by'], ['id'])
     # ### end Alembic commands ###

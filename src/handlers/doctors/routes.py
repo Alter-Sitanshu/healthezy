@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Depends, status
 from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from .models import NewDoctorForm, DoctorUpdateForm, DoctorLoginRequest, ResetPasswordForm
+from .models import NewDoctorForm, DoctorUpdateForm, ResetPasswordForm
 from .service import DoctorService
 from ...database.models.response_models import (
     DoctorResponse, UserResponse
@@ -54,15 +54,16 @@ def doctor_auth_guard(
         )
 
 secure_router = APIRouter(
-    dependencies=[Depends(user_auth_guard)]
+    dependencies=[Depends(doctor_auth_guard)]
 )
 
-@secure_router.post("/", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED,
+        dependencies=[Depends(user_auth_guard), Depends(authorise_hospital_privilege)]         
+    )
 async def create_doctor(
     request: Request,
     form: NewDoctorForm,
     session: Session = Depends(create_session),
-    _: None = Depends(authorise_hospital_privilege),
     # tenant_id: int = Depends(get_tenant_id),
 ) -> TokenSchema:
     """
@@ -104,24 +105,6 @@ async def reset_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-
-@router.post("/login", response_model=TokenSchema)
-async def login_doctor(
-    form: DoctorLoginRequest,
-    session: Session =  Depends(create_session)
-) -> TokenSchema | None:
-    try:
-        schema = DoctorService(session).authenticate(
-            form.doctor_code, form.password
-        )
-
-    except:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="doctor code or password incorrect",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return schema
 
 @router.get("/", response_model=List[DoctorResponse], status_code=status.HTTP_200_OK)
 async def get_all_doctors(
@@ -171,7 +154,6 @@ async def update_doctor_details(
     doctor_id: int,
     form: DoctorUpdateForm,
     session: Session = Depends(create_session),
-    _: None = Depends(authorise_hospital_privilege)
 ) -> None:
     updates: str = form.model_dump_json(exclude_none=True, exclude_unset=True)
     if len(updates) == 0:
@@ -187,15 +169,26 @@ async def update_doctor_details(
             detail=f"could not update doctor <Id:{doctor_id}>"
         )
     
-@secure_router.delete("/{doctor_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{doctor_id}", status_code=status.HTTP_200_OK,
+        dependencies=[Depends(user_auth_guard), Depends(authorise_hospital_privilege)]        
+    )
 async def delete_doctor(
     request: Request,
     doctor_id: int,
-    session: Session = Depends(create_session),
-    _: None = Depends(authorise_hospital_privilege)
+    session: Session = Depends(create_session)
 ) -> None:
+    """
+    The method first authorises the user(NOT DOCTOR) to allow permissions
+    to whether delete the doctor entity or NOT. Only the hospital_admin is authorised to delete
+    a doctor from that particular hospital/clinic
+
+    :param doctor_id: Target doctor's Id
+    :type doctor_id: int
+
+    """
     try:
-        DoctorService(session).delete_doctor(doctor_id)
+        admin_id: int = request.state.user.id
+        DoctorService(session).delete_doctor(admin_id, doctor_id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

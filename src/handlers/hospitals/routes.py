@@ -19,12 +19,12 @@ secure_router = APIRouter(
 )
 
 @secure_router.post("/", response_model=HospitalResponse,
-                    status_code=status.HTTP_200_OK)
+            status_code=status.HTTP_200_OK, dependencies=[Depends(authorise_hospital_privilege)]
+        )
 async def create_hospital(
     request: Request,
     form: HospitalForm,
     session: Session = Depends(create_session),
-    _: None = Depends(authorise_hospital_privilege),
     # tenant_id: int = Depends(get_tenant_id),
     # only hospital admins and superadmin can create/register a hospital
 ) -> HospitalResponse:
@@ -34,13 +34,14 @@ async def create_hospital(
         session
     ).create_hospital(form, created_by=current_user.id)
 
-@secure_router.put("/{hospital_code}", status_code=status.HTTP_200_OK)
+@secure_router.put("/{hospital_code}", status_code=status.HTTP_200_OK,
+        dependencies=[Depends(authorise_hospital_privilege)]
+    )
 async def update_hospital_details(
     request: Request,
     hospital_code: str,
     update_form: HospitalUpdateForm,
-    session: Session = Depends(create_session),
-    _: None = Depends(authorise_hospital_privilege)
+    session: Session = Depends(create_session)
 ) -> None:
     is_payload_empty = len(update_form.model_dump_json(exclude_none=True)) == 0
     if is_payload_empty:
@@ -59,12 +60,13 @@ async def update_hospital_details(
             detail=f"cannot update hospital details for <{hospital_code}>"
         )
 
-@secure_router.delete("/{hospital_code}", status_code=status.HTTP_200_OK)
+@secure_router.delete("/{hospital_code}", status_code=status.HTTP_200_OK,
+        dependencies=[Depends(authorise_hospital_privilege)]
+    )
 async def delete_hospital(
     request: Request,
     hospital_code: str,
-    session: Session = Depends(create_session),
-    _: None = Depends(authorise_hospital_privilege)
+    session: Session = Depends(create_session)
 ) -> None:
     try:
         HospitalService(session).delete(

@@ -73,7 +73,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_city', 'hospitals', ['city'], unique=False)
     op.create_index('idx_hospital_code', 'hospitals', ['hospital_code'], unique=False)
-    op.create_index('idx_tenant_id', 'hospitals', ['tenant_id'], unique=False)
+    op.create_index('idx_hospitals_tenant_id', 'hospitals', ['tenant_id'], unique=False)
     op.create_table('patients',
     sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('patient_code', sa.String(length=50), nullable=False),
@@ -114,10 +114,10 @@ def upgrade() -> None:
     sa.UniqueConstraint('email'),
     sa.UniqueConstraint('patient_code')
     )
-    op.create_index('idx_email', 'patients', ['email'], unique=False)
+    op.create_index('idx_patients_email', 'patients', ['email'], unique=False)
     op.create_index('idx_patient_code', 'patients', ['patient_code'], unique=False)
     op.create_index('idx_phone', 'patients', ['phone_number'], unique=False)
-    op.create_index('idx_tenant_id', 'patients', ['tenant_id'], unique=False)
+    op.create_index('idx_patients_tenant_id', 'patients', ['tenant_id'], unique=False)
     op.create_table('potential_users',
     sa.Column('email', sa.String(length=256), nullable=False),
     sa.Column('phone_number', sa.String(length=20), nullable=False),
@@ -158,7 +158,7 @@ def upgrade() -> None:
     sa.UniqueConstraint('subdomain'),
     sa.UniqueConstraint('tenant_code')
     )
-    op.create_index('idx_status', 'tenants', ['status'], unique=False)
+    op.create_index('idx_tenants_status', 'tenants', ['status'], unique=False)
     op.create_index('idx_subdomain', 'tenants', ['subdomain'], unique=False)
     op.create_index('idx_tenant_code', 'tenants', ['tenant_code'], unique=False)
     op.create_table('users',
@@ -173,7 +173,6 @@ def upgrade() -> None:
     sa.Column('is_superuser', sa.Boolean(), nullable=False),
     sa.Column('hospital_id', sa.BigInteger(), nullable=True),
     sa.Column('doctor_id', sa.BigInteger(), nullable=True),
-    sa.Column('patient_id', sa.BigInteger(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('email_verified', sa.Boolean(), nullable=False),
     sa.Column('phone_verified', sa.Boolean(), nullable=False),
@@ -183,9 +182,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
     )
-    op.create_index('idx_email', 'users', ['email'], unique=False)
+    op.create_index('idx_users_email', 'users', ['email'], unique=False)
     op.create_index('idx_role', 'users', ['role'], unique=False)
-    op.create_index('idx_tenant_id', 'users', ['tenant_id'], unique=False)
+    op.create_index('idx_users_tenant_id', 'users', ['tenant_id'], unique=False)
     op.create_table('doctors',
     sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('doctor_code', sa.String(length=50), nullable=False),
@@ -220,10 +219,10 @@ def upgrade() -> None:
     )
     op.create_index('idx_department_id', 'doctors', ['department_id'], unique=False)
     op.create_index('idx_doctor_code', 'doctors', ['doctor_code'], unique=False)
-    op.create_index('idx_email', 'doctors', ['email'], unique=False)
+    op.create_index('idx_doctors_email', 'doctors', ['email'], unique=False)
     op.create_index('idx_specialization', 'doctors', ['specialization'], unique=False)
-    op.create_index('idx_status', 'doctors', ['status'], unique=False)
-    op.create_index('idx_tenant_id', 'doctors', ['tenant_id'], unique=False)
+    op.create_index('idx_doctors_status', 'doctors', ['status'], unique=False)
+    op.create_index('idx_doctors_tenant_id', 'doctors', ['tenant_id'], unique=False)
     op.create_table('appointments',
     sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('appointment_number', sa.String(length=50), nullable=False),
@@ -258,10 +257,10 @@ def upgrade() -> None:
     )
     op.create_index('idx_appointment_date', 'appointments', ['appointment_date'], unique=False)
     op.create_index('idx_appointment_number', 'appointments', ['appointment_number'], unique=False)
-    op.create_index('idx_doctor_id', 'appointments', ['doctor_id'], unique=False)
+    op.create_index('idx_appointments_doctor_id', 'appointments', ['doctor_id'], unique=False)
     op.create_index('idx_patient_id', 'appointments', ['patient_id'], unique=False)
-    op.create_index('idx_status', 'appointments', ['status'], unique=False)
-    op.create_index('idx_tenant_id', 'appointments', ['tenant_id'], unique=False)
+    op.create_index('idx_appointments_status', 'appointments', ['status'], unique=False)
+    op.create_index('idx_appointments_tenant_id', 'appointments', ['tenant_id'], unique=False)
     op.create_index(op.f('ix_appointments_doctor_id'), 'appointments', ['doctor_id'], unique=False)
     op.create_table('doctor_schedule_exceptions',
     sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
@@ -278,9 +277,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('doctor_id', 'exception_date', 'tenant_id', name='unique_doctor_date')
     )
-    op.create_index('idx_doctor_id', 'doctor_schedule_exceptions', ['doctor_id'], unique=False)
+    op.create_index('idx_dse_doctor_id', 'doctor_schedule_exceptions', ['doctor_id'], unique=False)
     op.create_index('idx_leave_date', 'doctor_schedule_exceptions', ['exception_date'], unique=False)
-    op.create_index('idx_tenant_id', 'doctor_schedule_exceptions', ['tenant_id'], unique=False)
+    op.create_index('idx_dse_tenant_id', 'doctor_schedule_exceptions', ['tenant_id'], unique=False)
     op.create_table('doctor_schedules',
     sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('doctor_id', sa.BigInteger(), nullable=False),
@@ -299,8 +298,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('idx_day', 'doctor_schedules', ['day_of_week'], unique=False)
-    op.create_index('idx_doctor_id', 'doctor_schedules', ['doctor_id'], unique=False)
-    op.create_index('idx_tenant_id', 'doctor_schedules', ['tenant_id'], unique=False)
+    op.create_index('idx_ds_doctor_id', 'doctor_schedules', ['doctor_id'], unique=False)
+    op.create_index('idx_ds_tenant_id', 'doctor_schedules', ['tenant_id'], unique=False)
     # ### end Alembic commands ###
 
 

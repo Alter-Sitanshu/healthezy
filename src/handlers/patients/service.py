@@ -69,6 +69,11 @@ class PatientService(SessionMixin):
     def get_by_id(self, user_id: int, patient_id: int) -> PatientResponse:
         try:
             user: User = self._user_manager.get_user_by_id(user_id)
+            # Superusers can access any patient
+            if user.is_superuser:
+                patient = self._patient_manager.get_patient_by_id(patient_id)
+                return patient.to_response()
+            
             for p in user.registered_patients:
                 if p.id == patient_id:
                     return p.to_response()
@@ -92,16 +97,16 @@ class PatientService(SessionMixin):
                 )
         else:
             for p in user.registered_patients:
-                if p.creator == user:
-                    break
+               if p.id == patient_id: 
+                    self._patient_manager.delete(patient_id)
+                    return
             else:
                 # the loop was complete that means the user does not own the patient
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="unauthorised access"
                 )
-            self._patient_manager.delete(patient_id)
-    
+                
     def update_details(self, user_id: int, patient_id: int, updates: PatientUpdate) -> None:
         user: User = self._user_manager.get_user_by_id(user_id)
         if user.is_superuser:
@@ -118,7 +123,7 @@ class PatientService(SessionMixin):
                 )
         else:
             for p in user.registered_patients:
-                if p.id == patient_id and p.creator == user:
+                if p.id == patient_id:
                     # Convert Pydantic model to dict, excluding None values
                     update_dict = updates.model_dump(exclude_unset=True, exclude_none=True)
                     if 'updated_by' not in update_dict:

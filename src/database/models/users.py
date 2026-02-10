@@ -35,7 +35,6 @@ class User(Base):
 
     hospital_id: Mapped[int | None] = mapped_column(BigInteger)
     doctor_id: Mapped[int | None] = mapped_column(BigInteger)
-    patient_id: Mapped[int | None] = mapped_column(BigInteger)
 
     # user status
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -55,11 +54,12 @@ class User(Base):
     # realtionships
     registered_patients: Mapped[List["Patient"]] = relationship(
         "Patient", 
-        back_populates="creator"
+        back_populates="creator",
+        foreign_keys="[Patient.created_by]"
     )
 
     __table_args__ = (
-        Index("idx_email", "email"),
+        Index("idx_users_email", "email"),
         # Index("idx_tenant_id", "tenant_id"),
         Index("idx_role", "role"),
     )
@@ -163,7 +163,7 @@ class Tenant(Base):
     __table_args__ = (
         Index("idx_tenant_code", "tenant_code"),
         Index("idx_subdomain", "subdomain"),
-        Index("idx_status", "status")
+        Index("idx_tenants_status", "status")
     )
 
     def to_response(self) -> TenantResponse: 
