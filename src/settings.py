@@ -14,13 +14,15 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     
     # Database
-    database_url: str = Field(default="", description="Database DSN")
+    database_url: str = Field(default="mysql+mysqlconnector://root:secret@localhost/healtheze_master", description="Database DSN")
     database_pool_size: int = 10
     
     # Security
     secret_key: str = Field(default="", description="Secret key for JWT", min_length=32)
     secret_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    otp_expire_minutes: int = 1
+    admin_secret: str = Field(default="", description="Admin Login secret", min_length=32, max_length=32)
     
     # API settings
     api_prefix: str = "/api/v1"
@@ -60,7 +62,7 @@ class Settings(BaseSettings):
 class DevelopmentSettings(Settings):
     """Development-specific overrides"""
     database_url: str = Field(
-        default="postgresql+psycopg2://root:secret@localhost:5433/healthezy_dev?sslmode=disable"
+        default="mysql+mysqlconnector://root:secret@localhost/healtheze_master"
     )
     
     model_config = SettingsConfigDict(

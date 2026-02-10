@@ -1,0 +1,85 @@
+from fastapi import APIRouter, status, HTTPException, Depends, Request
+from .models import *
+from .service import AppointmentService
+
+# database imports
+from ...database.sessions import create_session
+from ...database.models.response_models import AppointmentResponse
+from sqlalchemy.orm import Session
+from typing import List
+
+# dependency
+from ...auth.dependencies import user_auth_guard
+
+router = APIRouter(
+    dependencies=[Depends(user_auth_guard)]
+)
+
+@router.post("/", status_code=status.HTTP_201_CREATED,
+        response_model=AppointmentResponse)
+async def create_appointment(
+    request: Request,
+    form: AppointmentRequest,
+    session: Session = Depends(create_session)
+) -> AppointmentResponse:
+    
+    try:
+        return AppointmentService(session).create_appointment(form)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="could not create appointment, try again"
+        )
+
+@router.put("/cancel/{appointment_id}", status_code=status.HTTP_200_OK)
+async def cancel_appointment(
+    request: Request,
+    appointment_id: int,
+    patient: int, # patient_id
+    session: Session = Depends(create_session)
+) -> None:
+    current_user = request.state.user
+    try:
+        AppointmentService(session).cancel_appointment(
+            current_user.id, appointment_id, patient,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+
+@router.put("/{appointment_id}", status_code=status.HTTP_200_OK,
+        response_model=AppointmentResponse)
+async def update_appointment(
+    request: Request,
+    appointment_id: int,
+    form: UpdateAppointment,
+    session: Session = Depends(create_session)
+) -> AppointmentResponse:
+    current_user = request.state.user
+    try:
+        return AppointmentService(session).update_appointment(
+            current_user.id, appointment_id, form
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+
+@router.get("/my", status_code=status.HTTP_200_OK,
+        response_model=List[AppointmentResponse])
+async def get_my_appointments(
+    request: Request,
+    session: Session = Depends(create_session)
+) -> List[AppointmentResponse]:
+    current_user = request.state.user
+    try:
+        return AppointmentService(session).get_my_appointments(current_user.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
