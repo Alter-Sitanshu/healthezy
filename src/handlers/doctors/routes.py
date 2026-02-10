@@ -8,7 +8,7 @@ from ...database.models.response_models import (
 )
 from ...database.sessions import create_session
 from sqlalchemy.orm import Session
-from ...auth.dependencies import user_auth_guard, authorise_hospital_privilege#, get_tenant_id
+from ...auth.dependencies import user_auth_guard, enforce_hospital_privilege#, get_tenant_id
 from ...auth.models import TokenSchema
 from typing import List
 
@@ -58,7 +58,7 @@ secure_router = APIRouter(
 )
 
 @router.post("/", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED,
-        dependencies=[Depends(user_auth_guard), Depends(authorise_hospital_privilege)]         
+        dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]         
     )
 async def create_doctor(
     request: Request,
@@ -170,7 +170,7 @@ async def update_doctor_details(
         )
     
 @router.delete("/{doctor_id}", status_code=status.HTTP_200_OK,
-        dependencies=[Depends(user_auth_guard), Depends(authorise_hospital_privilege)]        
+        dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]        
     )
 async def delete_doctor(
     request: Request,

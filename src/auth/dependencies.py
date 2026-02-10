@@ -74,7 +74,7 @@ async def user_auth_guard(
 
 #     return True
 
-async def authorise_hospital_privilege(
+async def enforce_hospital_privilege(
     request: Request
 ) -> None:
     try:

@@ -55,7 +55,9 @@ class HospitalService(SessionMixin):
         )
         return self._hospital_manager.add_hospital(hosp)
 
-    def get_hospital_by_id(self, id: int) -> HospitalResponse | None:
+    def get_hospital_by_id(self, id: int | None) -> HospitalResponse | None:
+        if id is None:
+            return None
         return self._hospital_manager.get_hospital_by_id(id)
     
     def get_hospitals(self) -> List[HospitalResponse]:

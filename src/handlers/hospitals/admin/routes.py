@@ -6,12 +6,16 @@ from sqlalchemy.orm import Session
 from ....database.sessions import create_session
 
 # security imports
-from ....auth.dependencies import user_auth_guard, enforce_admin_privilege #, get_tenant_id, verify_tenant
+from ....auth.dependencies import (
+    enforce_hospital_privilege,
+    user_auth_guard, enforce_admin_privilege #, get_tenant_id, verify_tenant
+) 
 
 # utility imports
 from ....auth.service import AuthService
+from ..service import HospitalService
 from ....auth.models import SignUpForm
-from ....database.models.response_models import UserResponse
+from ....database.models.response_models import UserResponse, HospitalResponse
 
 router = APIRouter(
     dependencies=[Depends(user_auth_guard)]
@@ -35,7 +39,7 @@ async def create_hospital_admin(
     
     return await service.create_user(form)
 
-@router.get("/{id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@router.get("/{admin_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 async def get_hospital_admin(
     request: Request,
     admin_id: int,
@@ -58,7 +62,31 @@ async def get_hospital_admin(
             detail="malformed request. access denied"
         )
 
-@router.get("/my_org", response_model=None)
-async def get_my_org() -> None:
-    pass
-    # TODO: High Priority Implement this
+@router.get("/my_hospital", response_model=HospitalResponse,
+        dependencies=[Depends(enforce_hospital_privilege)]        
+    )
+async def get_my_hospital(
+    request: Request,
+    session: Session = Depends(create_session)
+) -> HospitalResponse | None:
+    try:
+        current_user: UserResponse = request.state.user
+        if current_user.is_superuser:
+            raise HTTPException(
+                detail="invalid request. no hospital found",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        output = HospitalService(session).get_hospital_by_id(current_user.hospital_id)
+        if output is None:
+            raise HTTPException(
+                detail="invalid request. no hospital found",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        return output
+        
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="could not fetch admin hospital"
+        )

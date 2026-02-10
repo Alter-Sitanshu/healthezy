@@ -1,6 +1,6 @@
 # fastapi imports
 from fastapi import Request, Depends, HTTPException, APIRouter, status
-from ...auth.dependencies import user_auth_guard, authorise_hospital_privilege#, get_tenant_id
+from ...auth.dependencies import user_auth_guard, enforce_hospital_privilege#, get_tenant_id
 
 # database imports
 from ...database.models.response_models import HospitalResponse, UserResponse, DoctorResponse
@@ -19,7 +19,7 @@ secure_router = APIRouter(
 )
 
 @secure_router.post("/", response_model=HospitalResponse,
-            status_code=status.HTTP_200_OK, dependencies=[Depends(authorise_hospital_privilege)]
+            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)]
         )
 async def create_hospital(
     request: Request,
@@ -35,7 +35,7 @@ async def create_hospital(
     ).create_hospital(form, created_by=current_user.id)
 
 @secure_router.put("/{hospital_code}", status_code=status.HTTP_200_OK,
-        dependencies=[Depends(authorise_hospital_privilege)]
+        dependencies=[Depends(enforce_hospital_privilege)]
     )
 async def update_hospital_details(
     request: Request,
@@ -61,7 +61,7 @@ async def update_hospital_details(
         )
 
 @secure_router.delete("/{hospital_code}", status_code=status.HTTP_200_OK,
-        dependencies=[Depends(authorise_hospital_privilege)]
+        dependencies=[Depends(enforce_hospital_privilege)]
     )
 async def delete_hospital(
     request: Request,
