@@ -16,7 +16,8 @@ from ...settings import get_settings
 from ...auth.service import HashingMixin
 from uuid import uuid4
 from typing import List, Any, Final
-from datetime import time, timedelta, datetime, timezone
+from datetime import date, time, timedelta, datetime, timezone
+import logging
 import secrets
 import jwt
 
@@ -25,9 +26,33 @@ WEEK_DAY: Final[dict[str, int]] = {
 }
 settings = get_settings() #load the env
 
+
+# logger initiation
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
+
+
 TOKEN_SECRET: str = settings.secret_key
 TOKEN_EXPIRY_MINUTES: int = settings.access_token_expire_minutes
 TOKEN_ALGORITHM: str = settings.secret_algorithm
+
+def _get_date_for_day_string(day_str: str) -> date:
+        """Calculates the date of the next occurrence of 'Monday', 'Tuesday', etc."""
+        target_day_idx = WEEK_DAY[day_str.lower()[:3]]
+        
+        IST = timezone(timedelta(hours=5, minutes=30))
+        today = datetime.now(IST).date()
+        current_day_idx = today.weekday()
+        
+        days_ahead = target_day_idx - current_day_idx
+        if days_ahead < 0:
+            # If today is Wednesday and we want Monday, we show next week's Monday 
+            days_ahead += 7
+             
+        return today + timedelta(days=days_ahead)
 
 def add_time_delta(t: time, delta: timedelta) -> time:
     """
@@ -65,7 +90,6 @@ class DoctorService(SessionMixin, HashingMixin):
         self.session.commit()
         
     def get_all(self) -> List[DoctorResponse]:
-
         return self._doctor_manager.get_all_doctors()
 
     def get_doctor_from_token(self, token: str) -> DoctorResponse | None:
@@ -80,8 +104,7 @@ class DoctorService(SessionMixin, HashingMixin):
                 return None
             return user.to_response(exclude_sensitive=True)
         except Exception as e:
-            # TODO: add logging
-            print(f"JWT decode error: str{e}")
+            logger.info("JWT decode error: {}".format(e))
             return None
 
     async def create_doctor(self, doc: NewDoctorForm, created_by: int) -> dict[str, str]:
@@ -179,9 +202,20 @@ class DoctorService(SessionMixin, HashingMixin):
     def delete_schedule(self, id: int) -> None:
         self._schedule_manager.drop_schedule(id)
 
+    def get_slot_counts(self, doctor_id: int, target_date: date) -> dict[time, int]:
+        """
+        Returns a dictionary mapping start_time -> count of active appointments.
+        Example: {09:00:00: 2, 09:15:00: 1}
+        """
+        results = self._schedule_manager.get_bookings(doctor_id, target_date) # Returns list of (time, count) rows
+        
+        # Convert list of rows to a fast lookup dictionary
+        return {row[0]: row[1] for row in results}
         
     @classmethod
-    def retrieve_slots(cls, schedule: DoctorScheduleResp) -> List[Slot]:
+    def retrieve_slots(cls, schedule: DoctorScheduleResp, counts_map: dict[time, int] | None) -> List[Slot]:
+        if counts_map is None:
+            counts_map = {}
         start: time = schedule.start_time
         end: time = schedule.end_time
          # Convert to naive if timezone-aware
@@ -209,6 +243,8 @@ class DoctorService(SessionMixin, HashingMixin):
             next_ = add_time_delta(start, delta)
             if next_ > end:
                 break
+
+            current_bookings = counts_map.get(start, 0)
             slot_list.append(
                 Slot(
                     day=day_of_week,
@@ -216,7 +252,12 @@ class DoctorService(SessionMixin, HashingMixin):
                     slot_duration=schedule.slot_duration,
                     max_patients=schedule.max_patients_per_slot,
                     buffer_time_minutes=schedule.buffer_time_minutes,
-                    is_available = start >= now_ if day_ >= today_ else False
+                    booking_count=current_bookings,
+                    # It's available if time hasn't passed AND bookings < max capacity
+                    is_available=(
+                        (start >= now_ if day_ >= today_ else False) 
+                        and (current_bookings < schedule.max_patients_per_slot)
+                    )
                 )
             )
             start = next_
@@ -227,13 +268,18 @@ class DoctorService(SessionMixin, HashingMixin):
         schedule = self._schedule_manager.get_schedule_by_id(schedule_id)
         if schedule is None:
             return []
-        return self.retrieve_slots(schedule.to_response())
+        
+        target_date = _get_date_for_day_string(schedule.day_of_week)
+        counts_map = self.get_slot_counts(schedule.doctor_id, target_date)
+        return self.retrieve_slots(schedule.to_response(), counts_map)
     
     def get_doctor_schedules(self, doctor_id: int) -> List[Slot]:
         doctor_schedules: List[DoctorScheduleResp] = self._schedule_manager.get_doctor_schedules(doctor_id)
         slots_: List[Slot] = []
         for schedule in doctor_schedules:
-            slots_per_schedule: List[Slot] = self.retrieve_slots(schedule)
+            target_date = _get_date_for_day_string(schedule.day_of_week)
+            counts_map = self.get_slot_counts(schedule.doctor_id, target_date)
+            slots_per_schedule: List[Slot] = self.retrieve_slots(schedule, counts_map)
             slots_.extend(slots_per_schedule)
 
         return slots_

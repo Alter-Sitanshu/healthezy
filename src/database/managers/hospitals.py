@@ -11,6 +11,18 @@ from typing import Any, List, Literal
 from decimal import Decimal
 
 from pydantic import TypeAdapter
+from ...settings import get_settings
+import logging
+
+
+settings = get_settings()
+
+# logger initiation
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
 
 class HospitalManager(BaseDatabase):
     def __init__(self, session: Session) -> None:
@@ -31,7 +43,8 @@ class HospitalManager(BaseDatabase):
             return hospital.to_response()
 
         except Exception as e:
-            raise ManagerException("Hospital", str(e))
+            logger.error("{}".format(str(e)))
+            raise ManagerException("Hospital", "could not add hospital")
     
     def get_hospital_by_id(self, id: int) -> HospitalResponse | None:
         """
@@ -84,7 +97,7 @@ class HospitalManager(BaseDatabase):
             select(Hospital).where(Hospital.hospital_code == hospital_code)
         )
         if target is None:
-            raise ManagerException("Hospital", f"invalid hospital code<{hospital_code}>")
+            raise ManagerException("Hospital", "invalid hospital code")
 
         for key, value in payload.items():
             setattr(target, key, value)
@@ -96,7 +109,7 @@ class HospitalManager(BaseDatabase):
             select(Hospital).where(Hospital.hospital_code == hospital_code)
         )
         if target is None:
-            raise ManagerException("Hospital", f"invalid hospital code<{hospital_code}>")
+            raise ManagerException("Hospital", "invalid hospital code")
 
         self.delete_one(target)
 
@@ -134,7 +147,7 @@ class HospitalManager(BaseDatabase):
         """)
 
         # 2. Bind the SQL to the ORM Model
-        # This creates a statement that returns 'Hospital' objects, making 'scalars()' happy.
+        # This creates a statement that returns 'Hospital' objects
         stmt = select(Hospital).from_statement(raw_sql)
 
         # 3. Bind the parameters securely
@@ -153,7 +166,7 @@ class HospitalManager(BaseDatabase):
             column = Hospital.city
         else:
             # 2. Handle invalid types immediately
-            raise ManagerException("Hospital", f"invalid query param{param_type}")
+            raise ManagerException("Hospital", "invalid query param {}".format(param_type))
 
         stmt = select(Hospital).where(column == param)
 
@@ -168,7 +181,7 @@ class HospitalManager(BaseDatabase):
             )
         )
         if hospital is None:
-            raise ManagerException("Hospital", f"hospital <Id:{hospital_id}> does not exist")
+            raise ManagerException("Hospital", "hospital does not exist")
         
         doctors = hospital.doctors
         adapter = TypeAdapter(List[DoctorResponse])

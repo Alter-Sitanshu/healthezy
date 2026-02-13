@@ -7,6 +7,17 @@ from ...exceptions import ManagerException
 from typing import Any
 
 from ...handlers.users.models import UserUpdateForm
+import logging
+from ...settings import get_settings
+
+settings = get_settings()
+
+# logger initiation
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
 
 class UserManager(BaseDatabase):
     def __init__(self, session: Session) -> None:
@@ -25,6 +36,7 @@ class UserManager(BaseDatabase):
             self.add_one(user)
             return user.to_response(exclude_sensitive=True)
         except Exception as e:
+            logger.error("{}".format(str(e)))
             raise ManagerException("Auth", str(e))
         
     def add_temp_user(self, user: PotentialUsers) -> None:
@@ -39,6 +51,7 @@ class UserManager(BaseDatabase):
         try:
             self.add_one(user)
         except Exception as e:
+            logger.error("{}".format(str(e)))
             raise ManagerException("Auth", str(e))
         
     def get_user(self, identifier: str, is_mail: bool = True) -> User | None:
@@ -62,7 +75,6 @@ class UserManager(BaseDatabase):
             ))
 
         if not model:
-            print(f"User with details: {identifier} not found.")
             return None
 
         return model
@@ -74,7 +86,7 @@ class UserManager(BaseDatabase):
             )
         )
         if model is None:
-            raise ManagerException("User", f"user with id<{id}> does not exist")
+            raise ManagerException("User", "user with does not exist")
         return model
 
     def get_tenant(self, tenant_id: int) -> TenantResponse | None:
@@ -115,7 +127,6 @@ class UserManager(BaseDatabase):
             ))
 
         if not model:
-            print(f"Temp User with details: {identifier} not found.")
             return None
 
         return model
@@ -131,8 +142,7 @@ class UserManager(BaseDatabase):
         """
         model: User | None = self.get_one(select(User).where(User.id == user_id))
         if not isinstance(model, User):
-            # TODO: implement the logging
-            print(f"user<{user_id}>: entity does not exist")
+            logger.info("user<{}>: invalid access detected".format(user_id))
             return False
         model.soft_delete()
         self.session.commit()
@@ -150,8 +160,7 @@ class UserManager(BaseDatabase):
         """
         model: User | None = self.get_one(select(User).where(User.id == user_id))
         if not isinstance(model, User):
-            # TODO: implement the logging
-            print(f"user<{user_id}>: entity does not exist")
+            logger.info("user<{}>: invalid access detected".format(user_id))
             raise ValueError("user not found")
         
         # if the user changes the poc mark them as not verified to force re verification
@@ -178,5 +187,5 @@ class UserManager(BaseDatabase):
             )
         )
         if hospital_admin is None:
-            raise ManagerException("User", f"hospital admin <ID:{id}> does not exist")
+            raise ManagerException("User", "hospital admin does not exist")
         return hospital_admin.to_response(exclude_sensitive=True)

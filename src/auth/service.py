@@ -8,6 +8,7 @@ from ..settings import get_settings
 from fastapi import status
 from fastapi.exceptions import HTTPException
 from datetime import timezone, datetime, timedelta
+import logging
 
 # database models and base classes
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ from ..database.managers.manager import SessionMixin
 
 
 settings = get_settings() #load the env
+
 TOKEN_SECRET: str = settings.secret_key
 ADMIN_SECRET: str = settings.admin_secret
 TOKEN_EXPIRY_MINUTES: int = settings.access_token_expire_minutes # By default 30mins
@@ -28,6 +30,14 @@ TOKEN_TYPE: str = "Bearer" #By default taking Bearer JWT tokens
 TOKEN_ALGORITHM: str = settings.secret_algorithm
 # USER_TENANT_ID: int = 0  # user will have tenant_id 0
 OTP_EXPIRE_MINUTES: int = settings.otp_expire_minutes
+
+# logger initiation
+logger = logging.getLogger(__name__)
+logger.setLevel(settings.log_level)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
 
 if not TOKEN_SECRET or not TOKEN_ALGORITHM:
     raise RuntimeError("JWT configuration missing")
@@ -69,9 +79,9 @@ class AuthService(SessionMixin, HashingMixin):
         self._doctor_manager = DoctorManager(session)
 
     async def create_user(self, payload: SignUpForm) -> UserResponse:
-        temp_user = self._user_manager.potential_user(payload.email)
-        if temp_user is None or not temp_user.is_verified:
-            raise ValueError("user credentials not verified")
+        # temp_user = self._user_manager.potential_user(payload.email)
+        # if temp_user is None or not temp_user.is_verified:
+        #     raise ValueError("user credentials not verified")
         user_model = User(
             # tenant_id=USER_TENANT_ID,
             email=payload.email,
@@ -158,7 +168,7 @@ class AuthService(SessionMixin, HashingMixin):
         else:
             doctor: Doctor | None = self._doctor_manager.get_doctor(email)
         
-            if doctor is None or not doctor.status.lower() != "active":
+            if doctor is None or doctor.status.lower() != "active":
                 # either user not found, or not active or (nothing is verified)
                 raise cred_exception
             
@@ -184,8 +194,7 @@ class AuthService(SessionMixin, HashingMixin):
                 return None
             return user.to_response(exclude_sensitive=True)
         except Exception as e:
-            # TODO: add logging
-            print(f"JWT decode error: str{e}")
+            logger.info("JWT decode error: {}".format(e))
             return None
 
     async def regenerate_otp(self, identifier: str, is_email: bool = False) -> bool:

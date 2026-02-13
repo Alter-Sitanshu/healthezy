@@ -22,7 +22,7 @@ class PatientManager(BaseDatabase):
             )
         )
         if model is None:
-            raise ManagerException("Patient", f"patient with id<{id}> does not exist")
+            raise ManagerException("Patient", "patient does not exist")
         
         return model
     

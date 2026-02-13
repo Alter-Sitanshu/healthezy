@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # utility imports
 from contextlib import asynccontextmanager
 from .settings import Settings, get_settings
+from .database.sessions import ping
+import logging
 
 # Router objects for services
 from .auth.routes import router as auth_router, admin_router
@@ -17,17 +19,27 @@ from .handlers.doctors.doctor_schedules.exception_routes import router as schedu
 from .handlers.appointments.routes import router as appointment_router
 from .handlers.patients.routes import router as patient_router
 
+
 # Global consts
 settings: Settings = get_settings()
+
+# logger initiation
+logger = logging.getLogger(__name__)
+logger.setLevel(settings.log_level)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
 
 # init application object
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    print(f"[{settings.environment}] Server Started...")
+    ping() # Pinging the database to confirm healthy connection
+    logger.debug("{} - Application Start up Complete".format(settings.environment))
     yield
     # shutdown
-    print(f"[{settings.environment}] Server shudown")
+    logger.debug("Application Shutdown Completed")
 
 app = FastAPI(
     debug=True,

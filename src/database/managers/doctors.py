@@ -9,6 +9,18 @@ from ..models.response_models import (
 )
 from typing import List, Any
 from pydantic import TypeAdapter
+from ...settings import get_settings
+import logging
+
+
+settings = get_settings()
+
+# logger initiation
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
 
 class DoctorManager(BaseDatabase):
     def __init__(self, session: Session) -> None:
@@ -51,12 +63,12 @@ class DoctorManager(BaseDatabase):
             self.add_one(doctor)
             return doctor.to_response()
         except Exception as e:
+            logger.error("{}".format(str(e)))
             raise ManagerException("Doctor", str(e))
     
     def get_doctor_by_id(self, id: int) -> Doctor | None:
         model: Doctor | None = self.get_one(select(Doctor).where(Doctor.id == id))
         if model is None:
-            print(f"doctor with id{id} does not exist")
             return
         
         return model
@@ -64,7 +76,6 @@ class DoctorManager(BaseDatabase):
     def get_doctor_by_code(self, code: str) -> Doctor | None:
         model: Doctor | None = self.get_one(select(Doctor).where(Doctor.doctor_code == code))
         if model is None:
-            print(f"doctor with code<{code}> does not exist")
             return
         
         return model
@@ -104,14 +115,14 @@ class DoctorManager(BaseDatabase):
             )
         )
         if target is None:
-            raise ManagerException("Doctor", f"could not delete doctor. not found <Id:{id}>")
+            raise ManagerException("Doctor", "could not delete doctor")
         
         self.delete_one(target)
 
     def update(self, id: int, payload: dict[str, Any]) -> DoctorResponse:
         target: Doctor | None = self.get_one(select(Doctor).where(Doctor.id == id))
         if target is None:
-            raise ManagerException("Doctor", f"could not find doctor <Id:{id}>")
+            raise ManagerException("Doctor", "doctor not found")
         for key, value in payload.items():
             setattr(target, key, value)
         self.session.commit()

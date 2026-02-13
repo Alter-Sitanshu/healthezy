@@ -7,6 +7,8 @@ from .service import AuthService
 from ..database.models.response_models import UserResponse#, TenantResponse
 from sqlalchemy.orm import Session
 from ..database.sessions import create_session
+from ..settings import get_settings
+import logging
 
 bearer_scheme = HTTPBearer(scheme_name="Authorization: Bearer ", auto_error=False)
 # x_tenant_id = APIKeyHeader(
@@ -14,6 +16,16 @@ bearer_scheme = HTTPBearer(scheme_name="Authorization: Bearer ", auto_error=Fals
 #     scheme_name="X-Tenant-ID", 
 #     auto_error=False
 # )
+
+settings = get_settings() #load the env
+
+
+# logger initiation
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
 
 async def user_auth_guard(
         request: Request,
@@ -83,13 +95,13 @@ async def enforce_hospital_privilege(
         # a key error and the validation fails
         role: str = current_user.role.lower()
         if not current_user.is_superuser and (role != "hospital_admin"):
+            logger.info("unauthorised hospital admin access by {}".format(current_user.id))
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="privileges required",
             )
-    except Exception as e:
-        # TODO: add logging
-        raise ValueError(e)
+    except:
+        raise ValueError("access denied")
 
 async def enforce_admin_privilege(
     request: Request,
@@ -99,10 +111,10 @@ async def enforce_admin_privilege(
         # if there is no logged in user this raises
         # a key error and the validation fails
         if not current_user.is_superuser:
+            logger.info("admin access attempted by <{}>".format(current_user.id))
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="privileges required",
             )
-    except Exception as e:
-        # TODO: add loggging
-        raise ValueError(e)
+    except:
+        raise ValueError("unauthorised access")

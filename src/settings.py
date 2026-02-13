@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     # App basics
     app_name: str = "Healthezy"
     app_version: str = "0.1.0"
+    logs_file: str = Field(description="app logs file", default="home/healthezy-prod/src/bin/runtime_logs.txt")
     
     # Database
     database_url: str = Field(default="mysql+mysqlconnector://root:secret@localhost/healtheze_master", description="Database DSN")
@@ -50,7 +51,6 @@ class Settings(BaseSettings):
     
     @property
     def allowed_origins(self) -> list[str]:
-        # TODO: change this
         """Auto-configure CORS by environment"""
         if self.environment == "development":
             return ["*"]

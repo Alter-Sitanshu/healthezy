@@ -142,6 +142,7 @@ class Slot(BaseModel):
     max_patients: NonNegativeInt = 1
     buffer_time_minutes: NonNegativeInt = 0
     is_available: bool = False
+    booking_count: NonNegativeInt = 0
 
 class ScheduleUpdatePayload(BaseModel):
     start_time: Optional[time]

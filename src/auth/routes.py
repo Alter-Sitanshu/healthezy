@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, status, HTTPException
+import logging
+from ..settings import get_settings
 
 # Model and Service imports
 from .models import (
@@ -12,6 +14,14 @@ from .service import AuthService
 # Database and Manager imports
 from sqlalchemy.orm import Session
 from ..database.sessions import create_session
+
+settings = get_settings()
+# logger initiation
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler(filename=settings.logs_file)
+file_handler.setLevel(settings.log_level)
+file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
+logger.addHandler(file_handler)
 
 router = APIRouter()
 """
@@ -76,10 +86,12 @@ async def login(
    """
    try:
         service = AuthService(session)
-        return service.authenticate(
+        output = service.authenticate(
             AuthForm.role,
             AuthForm.email, AuthForm.password
         )
+        logger.info("<{}> : <{}> logged in".format(AuthForm.role, AuthForm.email))
+        return output
    except:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
