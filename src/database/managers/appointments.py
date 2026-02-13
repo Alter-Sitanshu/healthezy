@@ -52,5 +52,9 @@ class AppointmentManager(BaseDatabase):
         return appointment
     
     def get_appointments_by_user(self, user_id: int) -> List[Appointment]:
-        stmt = select(Appointment, Patient.first_name).join(Patient, Appointment.patient_id == Patient.id).where(Patient.created_by == user_id)
+        stmt = select(Appointment).join(
+            Patient, Appointment.patient_id == Patient.id
+        ).where(
+                Patient.created_by == user_id
+            )
         return self.get_all(stmt)

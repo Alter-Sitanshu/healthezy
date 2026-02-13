@@ -15,8 +15,7 @@ router = APIRouter(
     dependencies=[Depends(user_auth_guard)]
 )
 
-@router.post("/", status_code=status.HTTP_201_CREATED,
-        response_model=AppointmentResponse)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=AppointmentResponse)
 async def create_appointment(
     request: Request,
     form: AppointmentRequest,
@@ -35,13 +34,12 @@ async def create_appointment(
 async def cancel_appointment(
     request: Request,
     appointment_id: int,
-    patient: int, # patient_id
     session: Session = Depends(create_session)
 ) -> None:
     current_user = request.state.user
     try:
         AppointmentService(session).cancel_appointment(
-            current_user.id, appointment_id, patient,
+            current_user.id, appointment_id
         )
     except Exception as e:
         raise HTTPException(

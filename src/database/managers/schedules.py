@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, and_, func
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
 from ..models.tenants import (
-    Doctor,
+    Doctor, Appointment,
     DoctorSchedule, DoctorScheduleExceptions
 )
 from ..models.response_models import (
@@ -13,6 +13,7 @@ from ..models.response_models import (
 
 from typing import Any, List
 from pydantic import TypeAdapter
+from datetime import date, time
 
 class ScheduleManager(BaseDatabase):
     def __init__(self, session: Session) -> None:
@@ -52,7 +53,7 @@ class ScheduleManager(BaseDatabase):
         )
 
         if target is None:
-            raise ManagerException("Schedule", f"target schedule<{id}> does not exist")
+            raise ManagerException("Schedule", "target schedule<{}> does not exist".format(id))
 
         self.delete_one(target)
 
@@ -75,3 +76,31 @@ class ScheduleManager(BaseDatabase):
             setattr(model, key, value)
 
         self.session.commit()
+
+    def get_bookings(self, doctor_id: int, target_date: date) -> List[Any]:
+        stmt = (
+            select(Appointment.appointment_time, func.count(Appointment.id))
+            .where(
+                and_(
+                    Appointment.doctor_id == doctor_id,
+                    Appointment.appointment_date == target_date,
+                    Appointment.status != 'CANCELLED'
+                )
+            )
+            .group_by(Appointment.appointment_time)
+        )
+        return self.get_all(stmt)
+    
+    def get_slot_bookings(self, doctor_id: int, target_date: date, target_time: time) -> int:
+        stmt = (
+            select(func.count(Appointment.id))
+            .where(
+                and_(
+                    Appointment.doctor_id == doctor_id,
+                    Appointment.appointment_date == target_date,
+                    Appointment.appointment_time == target_time,
+                    Appointment.status != 'CANCELLED',
+                )
+            )
+        )
+        return self.get_one(stmt)

@@ -2,20 +2,28 @@ from ...database.managers.manager import SessionMixin
 from ...database.models.tenants import Appointment, Patient
 from ...database.models.response_models import AppointmentResponse
 from ...database.managers.appointments import AppointmentManager
+from ...database.managers.schedules import ScheduleManager
 
 from sqlalchemy.orm import Session
 
 from .models import *
 from uuid import uuid4
+from pydantic import TypeAdapter
+from typing import List
 
 class AppointmentService(SessionMixin):
 
     def __init__(self, session: Session) -> None:
         super().__init__(session)
         self._appointment_manager = AppointmentManager(session)
+        self._schedule_manager = ScheduleManager(session)
+        self.adapter = TypeAdapter(List[AppointmentResponse])
 
     def create_appointment(self, payload: AppointmentRequest) -> AppointmentResponse:
         appointment_num: str = f"{uuid4().hex[:10].upper()}"
+        booking_count: int = self._schedule_manager.get_slot_bookings(
+            payload.doctor_id, payload.appointment_date, payload.appointment_time
+        )
         model = Appointment(
             appointentment_number=appointment_num,
             patient_id=payload.patient_id,
@@ -29,20 +37,17 @@ class AppointmentService(SessionMixin):
             booking_type=payload.booking_type,
             reason_for_visit=payload.reason_for_visit,
             notes=payload.notes,
-            # TODO: add some logic later
-            token_number=1
+            token_number=booking_count+1
         )
         self._appointment_manager.create_appointment(model)
 
         return model.to_response()
     
-    def cancel_appointment(self, user_id: int, appointment_id: int, patient_id: int) -> None:
+    def cancel_appointment(self, user_id: int, appointment_id: int) -> None:
         appointment = self._appointment_manager.get_appointment_by_id(appointment_id)
 
-        if appointment.patient_id != patient_id:
-            raise ValueError("unauthorised access")
         # for sure the patient exists
-        patient: Patient = self._appointment_manager.get_patient(patient_id)
+        patient: Patient = self._appointment_manager.get_patient(appointment.patient_id)
         if patient.creator.id != user_id:
             raise ValueError("unauthorised access")
         
@@ -58,6 +63,6 @@ class AppointmentService(SessionMixin):
         updated = self._appointment_manager.update_appointment(appointment_id, update_data.model_dump(exclude_unset=True))
         return updated.to_response()
     
-    def get_my_appointments(self, user_id: int) -> list[AppointmentResponse]:
+    def get_my_appointments(self, user_id: int) -> List[AppointmentResponse]:
         appointments = self._appointment_manager.get_appointments_by_user(user_id)
-        return [appt.to_response() for appt in appointments]
+        return self.adapter.validate_python(appointments)
