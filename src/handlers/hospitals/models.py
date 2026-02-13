@@ -1,7 +1,14 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, Field, NonNegativeInt
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Literal
 from decimal import Decimal
+from datetime import date
 
+class AppointmentFilter(BaseModel):
+    status: Literal["cancelled", "upcoming", "completed"] | None = None
+    doctor_id: Optional[int] = None
+    patient_id: Optional[int] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
 
 class HospitalForm(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)]

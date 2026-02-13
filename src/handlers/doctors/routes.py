@@ -57,7 +57,7 @@ secure_router = APIRouter(
     dependencies=[Depends(doctor_auth_guard)]
 )
 
-@router.post("/", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED,
+@router.post("/", response_model=TokenSchema, status_code=status.HTTP_201_CREATED,
         dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]         
     )
 async def create_doctor(

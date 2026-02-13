@@ -22,6 +22,7 @@ settings = get_settings() #load the env
 
 # logger initiation
 logger = logging.getLogger(__name__)
+logger.setLevel(settings.log_level)
 file_handler = logging.FileHandler(filename=settings.logs_file)
 file_handler.setLevel(settings.log_level)
 file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
@@ -94,7 +95,7 @@ async def enforce_hospital_privilege(
         # if there is no logged in user this raises
         # a key error and the validation fails
         role: str = current_user.role.lower()
-        if not current_user.is_superuser and (role != "hospital_admin"):
+        if not current_user.is_superuser and (role != "hospital-admin"):
             logger.info("unauthorised hospital admin access by {}".format(current_user.id))
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

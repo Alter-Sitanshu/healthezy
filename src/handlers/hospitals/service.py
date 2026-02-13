@@ -1,8 +1,9 @@
 # database imports
 from ...database.managers.manager import SessionMixin
 from ...database.managers.hospitals import HospitalManager
+from ...database.managers.appointments import AppointmentManager
 from ...database.models import Hospital
-from ...database.models.response_models import HospitalResponse, DoctorResponse
+from ...database.models.response_models import HospitalResponse, DoctorResponse, AppointmentResponse
 
 # sqlalchemy imports
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ class HospitalService(SessionMixin):
     def __init__(self, session: Session) -> None:
         super().__init__(session)
         self._hospital_manager = HospitalManager(session)
+        self._appointment_manager = AppointmentManager(session)
         self.adapter = TypeAdapter(List[HospitalResponse])
 
     async def create_hospital(self, 
@@ -67,11 +69,11 @@ class HospitalService(SessionMixin):
     def get_hospital_by_code(self, hospital_code: str) -> HospitalResponse | None:
         return self._hospital_manager.get_hospital_by_code(hospital_code)
     
-    def update_details(self, payload: dict[str, Any], hospital_code: str) -> None:
-        self._hospital_manager.update(payload, hospital_code)
+    def update_details(self, payload: dict[str, Any], hospital_code: str, admin_id: int) -> None:
+        self._hospital_manager.update(payload, hospital_code, admin_id)
     
-    def delete(self, hospital_code: str) -> None:
-        self._hospital_manager.delete(hospital_code)
+    def delete(self, hospital_code: str, admin_id: int) -> None:
+        self._hospital_manager.delete(hospital_code, admin_id)
 
     def find_hospitals_around(self, lat: Decimal, long: Decimal, rad: int) -> List[HospitalResponse]:
         return self._hospital_manager.find_hospitals_around(
@@ -92,3 +94,7 @@ class HospitalService(SessionMixin):
     
     def get_doctors(self, hospital_id: int) -> List[DoctorResponse]:
         return self._hospital_manager.get_doctors(hospital_id)
+    
+    def get_hospital_appointments(self, hospital_id: int, filters: dict[str, Any]) -> List[AppointmentResponse]:
+        return self._appointment_manager.get_hospital_appointments(hospital_id, filters)
+        

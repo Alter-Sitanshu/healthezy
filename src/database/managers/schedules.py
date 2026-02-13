@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, update
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
 from ..models.tenants import (
-    Doctor, Appointment,
+    Appointment,
     DoctorSchedule, DoctorScheduleExceptions
 )
 from ..models.response_models import (
@@ -40,11 +40,7 @@ class ScheduleManager(BaseDatabase):
         return model
     
     def get_doctor_schedules(self, doctor_id: int) -> List[DoctorScheduleResp]:
-        doctor: Doctor | None = self.get_one(select(Doctor).where(Doctor.id == doctor_id))
-        if doctor is None:
-            return []
-        
-        schedules: List[DoctorSchedule] = doctor.schedules
+        schedules = self.get_all(select(DoctorSchedule).where(DoctorSchedule.doctor_id == doctor_id))
         return self.adapter.validate_python(schedules)
     
     def drop_schedule(self, id: int) -> None:
@@ -104,3 +100,18 @@ class ScheduleManager(BaseDatabase):
             )
         )
         return self.get_one(stmt)
+    
+    def invalidate_appointments(self, doctor_id: int, _date: date) -> None:
+        stmt = (
+            update(Appointment).where(
+                and_(
+                    Appointment.doctor_id == doctor_id,
+                    Appointment.appointment_date == _date
+                )
+
+            ).values(
+                status = "CANCELLED"
+            )
+        )
+        self.session.execute(stmt)
+        self.session.commit()

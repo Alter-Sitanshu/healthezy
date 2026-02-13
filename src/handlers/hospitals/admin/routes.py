@@ -9,13 +9,15 @@ from ....database.sessions import create_session
 from ....auth.dependencies import (
     enforce_hospital_privilege,
     user_auth_guard, enforce_admin_privilege #, get_tenant_id, verify_tenant
-) 
+)
+from ..models import AppointmentFilter
 
 # utility imports
 from ....auth.service import AuthService
 from ..service import HospitalService
 from ....auth.models import SignUpForm
-from ....database.models.response_models import UserResponse, HospitalResponse
+from ....database.models.response_models import UserResponse, HospitalResponse, AppointmentResponse
+from typing import List
 
 router = APIRouter(
     dependencies=[Depends(user_auth_guard)]
@@ -90,3 +92,27 @@ async def get_my_hospital(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="could not fetch admin hospital"
         )
+
+@router.get("/appointments", response_model=List[AppointmentResponse], 
+            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)])
+async def get_appointments(
+    request: Request,
+    filters: AppointmentFilter = Depends(),
+    session: Session = Depends(create_session)
+) -> List[AppointmentResponse]:
+    try:
+        if request.state.user.hospital_id is None:
+            raise HTTPException(
+                detail="invalid request. no hospital found",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        return HospitalService(session).get_hospital_appointments(
+            hospital_id = request.state.user.hospital_id,
+            filters = filters.model_dump(exclude_none=True)
+        )
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="error fetching hospital appointments"
+        )
+    

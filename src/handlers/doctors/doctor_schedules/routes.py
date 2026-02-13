@@ -22,7 +22,7 @@ async def get_schedule_by_id(
 ) -> List[Slot]:
     return DoctorService(session).get_schedule(schedule_id)
 
-@router.get("/{doctor_id}", status_code=status.HTTP_200_OK)
+@router.get("/doctor/{doctor_id}", status_code=status.HTTP_200_OK)
 async def get_doctor_schedules(
     doctor_id: int,
     session: Session = Depends(create_session),

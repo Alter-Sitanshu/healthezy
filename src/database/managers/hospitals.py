@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select, text
+from sqlalchemy import select, and_, text
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -19,6 +19,7 @@ settings = get_settings()
 
 # logger initiation
 logger = logging.getLogger(__name__)
+logger.setLevel(settings.log_level)
 file_handler = logging.FileHandler(filename=settings.logs_file)
 file_handler.setLevel(settings.log_level)
 file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
@@ -83,7 +84,7 @@ class HospitalManager(BaseDatabase):
             select(Hospital)
         )
 
-    def update(self, payload: dict[str, Any], hospital_code: str) -> None:
+    def update(self, payload: dict[str, Any], hospital_code: str, admin_id: int) -> None:
         """
         Updates the target hospital's details. If not found raise exception
         
@@ -94,7 +95,12 @@ class HospitalManager(BaseDatabase):
         """
 
         target: Hospital | None = self.get_one(
-            select(Hospital).where(Hospital.hospital_code == hospital_code)
+            select(Hospital).where(
+                and_(
+                    Hospital.hospital_code == hospital_code,
+                    Hospital.created_by == admin_id
+                )
+            )
         )
         if target is None:
             raise ManagerException("Hospital", "invalid hospital code")
@@ -104,9 +110,14 @@ class HospitalManager(BaseDatabase):
         
         self.session.commit()
 
-    def delete(self, hospital_code: str) -> None:
+    def delete(self, hospital_code: str, admin_id: int) -> None:
         target: Hospital | None = self.get_one(
-            select(Hospital).where(Hospital.hospital_code == hospital_code)
+            select(Hospital).where(
+                and_(
+                    Hospital.hospital_code == hospital_code,
+                    Hospital.created_by == admin_id
+                )
+            )
         )
         if target is None:
             raise ManagerException("Hospital", "invalid hospital code")

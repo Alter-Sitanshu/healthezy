@@ -19,7 +19,7 @@ secure_router = APIRouter(
 )
 
 @secure_router.post("/", response_model=HospitalResponse,
-            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)]
+            status_code=status.HTTP_201_CREATED, dependencies=[Depends(enforce_hospital_privilege)]
         )
 async def create_hospital(
     request: Request,
@@ -52,7 +52,8 @@ async def update_hospital_details(
     try:
         HospitalService(session).update_details(
             update_form.model_dump(exclude_none=True), 
-            hospital_code
+            hospital_code,
+            request.state.user.id,
         )
     except:
         raise HTTPException(
@@ -70,7 +71,7 @@ async def delete_hospital(
 ) -> None:
     try:
         HospitalService(session).delete(
-            hospital_code
+            hospital_code, request.state.user.id
         )
     except:
         raise HTTPException(

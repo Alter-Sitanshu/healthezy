@@ -293,7 +293,7 @@ class Hospital(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="hospitals_created_by"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
-    update_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="hospitals_updated_by"), nullable=True)
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="hospitals_updated_by"), nullable=True)
 
     # Relationships
     doctors: Mapped[List["Doctor"]] = relationship("Doctor", back_populates="hospital")

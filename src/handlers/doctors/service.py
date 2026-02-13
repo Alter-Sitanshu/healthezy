@@ -29,6 +29,7 @@ settings = get_settings() #load the env
 
 # logger initiation
 logger = logging.getLogger(__name__)
+logger.setLevel(settings.log_level)
 file_handler = logging.FileHandler(filename=settings.logs_file)
 file_handler.setLevel(settings.log_level)
 file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
@@ -112,7 +113,7 @@ class DoctorService(SessionMixin, HashingMixin):
         token = secrets.token_urlsafe(12)
         doctor = Doctor(
             doctor_code=generated_code,
-            password=token,
+            password=self.encrypt(token),
             # Basic Info
             first_name=doc.first_name,
             middle_name=doc.middle_name or "", 
@@ -297,6 +298,9 @@ class DoctorService(SessionMixin, HashingMixin):
             reason=payload.reason,
         )
         self._schedule_manager.add_exception(model)
+        self._schedule_manager.invalidate_appointments(
+            doctor_id=doctor_id, _date=payload.exception_date
+        )
 
         return model.to_response()
     
