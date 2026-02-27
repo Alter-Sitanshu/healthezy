@@ -256,3 +256,71 @@ class AppointmentResponse(BaseResponse):
     
     created_at: datetime
     # tenant_id: int
+
+# -------------------------------------------------------------------
+# Lab Response
+# -------------------------------------------------------------------
+class LabTestResponse(BaseResponse):
+    id: int
+    lab_id: int
+    test_code: str
+    name: str
+    description: Optional[str] = None
+    category: str
+    turnaround_time_hours: int
+    sample_type: str
+    test_price: Annotated[
+        Decimal,
+        Field(max_digits=10, decimal_places=2, ge=0)
+    ]
+    normal_range: Optional[str] = None
+    unit_of_measurement: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+class LabResponse(BaseResponse):
+    id: int
+    lab_code: str
+    name: str
+    type: Optional[str] = None
+    description: Optional[str] = None
+    
+    # Location details
+    address: str
+    city: str
+    state: str
+    zip_code: str
+    country: str
+    
+    # Contact information
+    phone_number: str
+    email: EmailStr
+    website: Optional[str] = None
+    
+    # Operating info
+    is24x7: bool
+    opening_time: Optional[time] = None
+    closing_time: Optional[time] = None
+    
+    # Hospital association
+    hospital_id: Optional[int] = None
+    
+    # License & credentials
+    license_number: Optional[str] = None
+    accreditation: Optional[str] = None
+    established_year: Optional[int] = None
+    
+    # Geographic coordinates
+    latitude: Annotated[Decimal, Field(ge=-90, le=90, max_digits=10, decimal_places=8)]
+    longitude: Annotated[Decimal, Field(ge=-180, le=180, max_digits=11, decimal_places=8)]
+    
+    # Media
+    logo_url: Optional[str] = None
+    
+    # Status
+    is_active: bool
+    
+    # Audit
+    created_at: datetime
+    updated_at: datetime

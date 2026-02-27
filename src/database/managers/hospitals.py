@@ -83,6 +83,36 @@ class HospitalManager(BaseDatabase):
         return self.get_all(
             select(Hospital)
         )
+    
+    def get_applications(self) -> List[Hospital]:
+        return self.get_all(
+            select(Hospital).where(
+                and_(
+                    Hospital.is_active == False,
+                    Hospital.is_rejected != True
+                )
+            )
+        )
+    
+    def approve(self, id_: int) -> None:
+        target_obj = self.get_one(
+            select(Hospital).where(
+                Hospital.id == id_
+            )
+        )
+        if target_obj is not None:
+            target_obj.is_active = True
+            self.session.commit()
+
+    def reject(self, id_: int) -> None:
+        target_obj = self.get_one(
+            select(Hospital).where(
+                Hospital.id == id_
+            )
+        )
+        if target_obj is not None:
+            target_obj.is_rejected = True
+            self.session.commit()
 
     def update(self, payload: dict[str, Any], hospital_code: str, admin_id: int) -> None:
         """

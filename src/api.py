@@ -8,7 +8,8 @@ from .database.sessions import ping
 import logging
 
 # Router objects for services
-from .auth.routes import router as auth_router, admin_router
+from .auth.routes import router as auth_router
+from .handlers.admin.routes import router as admin_router
 from .handlers.users.routes import router as user_router
 from .handlers.doctors.routes import router as doctor_router
 from .handlers.doctors.doctor_schedules.routes import router as schedule_router
@@ -18,6 +19,7 @@ from .handlers.tenants.routes import router as tenant_router
 from .handlers.doctors.doctor_schedules.exception_routes import router as schedule_exc_router
 from .handlers.appointments.routes import router as appointment_router
 from .handlers.patients.routes import router as patient_router
+from .handlers.labs.routes import router as labs_router
 
 
 # Global consts
@@ -126,6 +128,12 @@ app.include_router(
     router=admin_router,
     prefix="/admin",
     tags=["Admin"]
+)
+
+app.include_router(
+    router=labs_router,
+    prefix="/labs",
+    tags=["Labs"]
 )
 
 app.include_router(

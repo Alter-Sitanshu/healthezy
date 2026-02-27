@@ -1,6 +1,7 @@
 from fastapi import APIRouter, status, HTTPException, Depends, Request
 from .models import *
 from .service import AppointmentService
+from ...exceptions import ManagerException
 
 # database imports
 from ...database.sessions import create_session
@@ -10,9 +11,14 @@ from typing import List
 
 # dependency
 from ...auth.dependencies import user_auth_guard
+from ...handlers.doctors.routes import doctor_auth_guard
 
 router = APIRouter(
     dependencies=[Depends(user_auth_guard)]
+)
+
+doctor_router = APIRouter(
+    dependencies=[Depends(doctor_auth_guard)]
 )
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=AppointmentResponse)
@@ -81,3 +87,44 @@ async def get_my_appointments(
             detail=str(e)
         )
 
+@doctor_router.patch("/invalidate/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def invalidate_appointment(
+    request: Request,
+    appointment_id: int,
+    session: Session = Depends(create_session)
+) -> None:
+    try:
+        AppointmentService(session).invalidate(appointment_id, request.state.doctor.id)
+    except ManagerException:
+        raise HTTPException(
+            detail="invalid credentials",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    except:
+        raise HTTPException(
+            detail="server errror",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+@doctor_router.patch("/completed/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_appointment_completed(
+    request: Request,
+    appointment_id: int,
+    session: Session = Depends(create_session)
+) -> None:
+    try:
+        AppointmentService(session).mark_completed(appointment_id, request.state.doctor.id)
+    except ManagerException:
+        raise HTTPException(
+            detail="invalid credentials",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    except:
+        raise HTTPException(
+            detail="server errror",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+router.include_router(
+    doctor_router
+)

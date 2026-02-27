@@ -7,7 +7,7 @@ from .models import (
     TokenSchema,
     OTPVerifyRequest, OTPResponse,
     SignUpForm, BasicSignUpForm, 
-    LoginRequest, AdminForm
+    LoginRequest
 )
 from .service import AuthService
 
@@ -161,21 +161,4 @@ async def verify_otp(
     return OTPResponse(
         message="User verified successfully",
         token=None
-    )
-
-
-admin_router = APIRouter()
-
-@admin_router.post("/", status_code=status.HTTP_201_CREATED, response_model=TokenSchema)
-async def create_superadmin(
-    form: AdminForm,
-    session: Session = Depends(create_session)
-) -> TokenSchema:
-    service =  AuthService(session)
-    await service.create_admin(form)
-    access_token: str = service.create_access_token(form.email)
-
-    return TokenSchema(
-        access_token=access_token,
-        token_type="Bearer"
     )

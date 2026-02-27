@@ -2,7 +2,11 @@
 from ...database.managers.manager import SessionMixin
 from ...database.managers.doctors import DoctorManager
 from ...database.managers.schedules import ScheduleManager
-from ...database.models.response_models import DoctorResponse, DoctorScheduleResp, DoctorScheduleExpResp
+from ...database.managers.schedules import ScheduleManager
+from ...database.managers.appointments import AppointmentManager
+from ...database.models.response_models import (
+    DoctorResponse, DoctorScheduleResp, DoctorScheduleExpResp
+)
 from ...database.models.tenants import Doctor, DoctorSchedule, DoctorScheduleExceptions
 
 # sqlalchemy imports
@@ -100,10 +104,10 @@ class DoctorService(SessionMixin, HashingMixin):
                 algorithms=[TOKEN_ALGORITHM],
                 options={"verify_exp": True}
             )
-            user: Doctor | None = self._doctor_manager.get_doctor(payload["sub"])
-            if not user:
+            doctor: Doctor | None = self._doctor_manager.get_doctor(payload["sub"])
+            if not doctor:
                 return None
-            return user.to_response(exclude_sensitive=True)
+            return doctor.to_response(exclude_sensitive=True)
         except Exception as e:
             logger.info("JWT decode error: {}".format(e))
             return None
@@ -155,20 +159,26 @@ class DoctorService(SessionMixin, HashingMixin):
         if doc is None:
             return
         
-        doc.to_response()
+        doc.to_response(exclude_sensitive=True)
     
     def get_doctor_by_experience(self, exp: int) ->List[DoctorResponse]:
         return self._doctor_manager.get_doctors_by_experience(exp)
     
     def delete_doctor(self, admin_id: int, doctor_id: int) -> None:
         try:
-            self._doctor_manager.delete(admin_id, doctor_id)
+            self._doctor_manager.soft_delete(admin_id, doctor_id)
         except Exception as e:
             raise ValueError(str(e))
     
     async def update_doctor(self, doctor_id: int, payload: dict[str, Any]) -> DoctorResponse:
         try:
             return self._doctor_manager.update(doctor_id, payload)
+        except Exception as e:
+            raise ValueError(str(e))
+        
+    async def manage_doctor(self, doctor_id: int, admin_id: int, payload: dict[str, Any]) -> DoctorResponse:
+        try:
+            return self._doctor_manager.update_by_admin(doctor_id, admin_id, payload)
         except Exception as e:
             raise ValueError(str(e))
         
@@ -328,3 +338,6 @@ class DoctorService(SessionMixin, HashingMixin):
         self._schedule_manager.update(
             exception, payload.model_dump(exclude_none=True)
         )
+
+    def get_doctor_appointments(self, doctor_id: int) -> List[Any]:
+        return AppointmentManager(self.session).get_appointments_by_doctor(doctor_id)

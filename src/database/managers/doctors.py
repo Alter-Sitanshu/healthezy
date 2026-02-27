@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 from sqlalchemy import select, and_
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
@@ -68,14 +68,22 @@ class DoctorManager(BaseDatabase):
             raise ManagerException("Doctor", str(e))
     
     def get_doctor_by_id(self, id: int) -> Doctor | None:
-        model: Doctor | None = self.get_one(select(Doctor).where(Doctor.id == id))
+        model: Doctor | None = self.get_one(
+            select(Doctor).where(
+                Doctor.id == id
+            )
+        )
         if model is None:
             return
         
         return model
     
     def get_doctor_by_code(self, code: str) -> Doctor | None:
-        model: Doctor | None = self.get_one(select(Doctor).where(Doctor.doctor_code == code))
+        model: Doctor | None = self.get_one(
+            select(Doctor).where(
+                Doctor.doctor_code == code
+            ).options(defer(Doctor.password))
+        )
         if model is None:
             return
         
@@ -90,7 +98,11 @@ class DoctorManager(BaseDatabase):
         :return: list of matching doctors
         :rtype: List[DoctorResponse]
         """
-        doctors: List[Doctor] = self.get_all(select(Doctor).where(Doctor.specialization == spec))
+        doctors: List[Doctor] = self.get_all(
+            select(Doctor).where(
+                Doctor.specialization == spec
+            ).options(defer(Doctor.password))
+        )
 
         return self.adapter.validate_python(doctors)
 
@@ -103,9 +115,28 @@ class DoctorManager(BaseDatabase):
         :return: list of matching doctors
         :rtype: List[DoctorResponse]
         """
-        doctors: List[Doctor] = self.get_all(select(Doctor).where(Doctor.experience_years >= exp))
+        doctors: List[Doctor] = self.get_all(
+            select(Doctor).where(
+                Doctor.experience_years >= exp
+            ).options(defer(Doctor.password))
+        )
         return self.adapter.validate_python(doctors)
     
+    def soft_delete(self, admin_id: int, id: int) -> None:
+        target: Doctor | None = self.get_one(
+            select_stmt=select(Doctor).where(
+                and_(
+                    Doctor.id == id,
+                    Doctor.hospital.has(created_by=admin_id)
+                )
+            )
+        )
+        if target is None:
+            raise ManagerException("Doctor", "could not delete doctor")
+        
+        target.status = "INACTIVE"
+        self.session.commit()
+        
     def delete(self, admin_id: int, id: int) -> None:
         target: Doctor | None = self.get_one(
             select_stmt=select(Doctor).where(
@@ -122,6 +153,22 @@ class DoctorManager(BaseDatabase):
 
     def update(self, id: int, payload: dict[str, Any]) -> DoctorResponse:
         target: Doctor | None = self.get_one(select(Doctor).where(Doctor.id == id))
+        if target is None:
+            raise ManagerException("Doctor", "doctor not found")
+        for key, value in payload.items():
+            setattr(target, key, value)
+        self.session.commit()
+        return target.to_response()
+    
+    def update_by_admin(self, id: int, admin_id: int, payload: dict[str, Any]) -> DoctorResponse:
+        target: Doctor | None = self.get_one(
+            select(Doctor).where(
+                and_(
+                    Doctor.id == id,
+                    # add the admin check
+                )
+            )
+        )
         if target is None:
             raise ManagerException("Doctor", "doctor not found")
         for key, value in payload.items():

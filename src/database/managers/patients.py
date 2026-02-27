@@ -26,6 +26,11 @@ class PatientManager(BaseDatabase):
         
         return model
     
+    def get_all_patients(self) -> List[Patient]:
+        return self.get_all(
+            select(Patient)
+        )
+    
     def delete(self, patient_id: int) -> None:
         target: Patient = self.get_patient_by_id(patient_id)
         self.delete_one(target)

@@ -4,7 +4,7 @@ from .manager import BaseDatabase
 from ..models.users import User, PotentialUsers, Tenant
 from ..models.response_models import UserResponse, TempUser, TenantResponse
 from ...exceptions import ManagerException
-from typing import Any
+from typing import Any, List
 
 from ...handlers.users.models import UserUpdateForm
 import logging
@@ -79,6 +79,20 @@ class UserManager(BaseDatabase):
             return None
 
         return model
+    
+    def get_all_users(self, active: bool) -> List[User]:
+        if active:
+            return self.get_all(
+                select(User).where(
+                    User.is_active == active,
+                    User.role == 'user',
+                )
+            )
+        return self.get_all(
+            select(User).where(
+                User.role == 'user'
+            )
+        )
 
     def get_user_by_id(self, id: int) -> User:
         model = self.get_one(
@@ -177,16 +191,42 @@ class UserManager(BaseDatabase):
             setattr(model, key, value)
         
         self.session.commit()
-        
-    def get_hospital_admin(self, id: int) -> UserResponse:
-        hospital_admin: User | None = self.get_one(
-            select(User).where(
-               and_(
-                   User.id == id,
-                   User.role == "hospital_admin"
-               )
-            )
-        )
-        if hospital_admin is None:
-            raise ManagerException("User", "hospital admin does not exist")
-        return hospital_admin.to_response(exclude_sensitive=True)
+    
+    def get_admins(self, provider: str, isactive: bool | None) -> List[User]:
+        match provider:
+            case "hospital":
+                if isactive is not None:
+                    return self.get_all(
+                            select(User).where(
+                                and_(
+                                    User.role == "hospital-admin",
+                                    User.is_active == isactive
+                                )
+                            )
+                        )
+                return self.get_all(
+                    select(User).where(
+                        and_(
+                            User.role == "hospital-admin",
+                        )
+                    )
+                )
+            case "lab":
+                if isactive is not None:
+                    return self.get_all(
+                            select(User).where(
+                                and_(
+                                    User.role == "lab-admin",
+                                    User.is_active == isactive
+                                )
+                            )
+                        )
+                return self.get_all(
+                    select(User).where(
+                        and_(
+                            User.role == "lab-admin"
+                        )
+                    )
+                )
+            case _:
+                raise ValueError("provider type not supported")

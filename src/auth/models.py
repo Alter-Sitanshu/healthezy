@@ -6,7 +6,7 @@ class SignUpForm(BaseModel):
     phone_number: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=20, pattern=r"^\+?\d{10,15}$")]
     first_name: str
     last_name: str
-    role: Literal["user", "hospital-admin"]
+    role: Literal["user", "hospital-admin", "lab-admin"]
     password: Annotated[str, StringConstraints(min_length=8)]
     # otp: Annotated[str, StringConstraints(max_length=4, min_length=4)]
 
@@ -29,7 +29,7 @@ class BasicSignUpForm(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    role: Literal["user", "hospital-admin", "doctor"]
+    role: Literal["user", "hospital-admin", "doctor", "lab-admin"]
     password: str
     
 class AdminForm(SignUpForm):

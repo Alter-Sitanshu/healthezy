@@ -12,7 +12,7 @@ class NewDoctorForm(BaseModel):
     last_name: Annotated[str, StringConstraints(strip_whitespace=True, max_length=50)]
 
     email: EmailStr
-    phone_number: Annotated[str, StringConstraints(max_length=20, strip_whitespace=True, pattern=r"")]
+    phone_number: Annotated[str, StringConstraints(max_length=20, strip_whitespace=True, pattern=r"^\+?\d{10,15}$")]
     gender: Annotated[Literal["male", "female", "other"], StringConstraints(to_lower=True, max_length=20)]
 
     specialization: Annotated[str, StringConstraints(max_length=200, strip_whitespace=True)]
@@ -39,7 +39,7 @@ class DoctorUpdateForm(BaseModel):
     last_name: Annotated[str, StringConstraints(strip_whitespace=True, max_length=50)] | None
 
     email: EmailStr | None
-    phone_number: Annotated[str, StringConstraints(max_length=20, strip_whitespace=True, pattern=r"")] | None
+    phone_number: Annotated[str, StringConstraints(max_length=20, strip_whitespace=True, pattern=r"^\+?\d{10,15}$")] | None
     gender: Annotated[Literal["male", "female", "other"], StringConstraints(to_lower=True, max_length=20)] | None
 
     specialization: Annotated[str, StringConstraints(max_length=200, strip_whitespace=True)]

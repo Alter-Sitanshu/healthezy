@@ -2,7 +2,8 @@
 from ...database.managers.manager import SessionMixin
 from ...database.managers.hospitals import HospitalManager
 from ...database.managers.appointments import AppointmentManager
-from ...database.models import Hospital
+from ...database.managers.doctors import DoctorManager
+from ...database.models import Hospital, Doctor
 from ...database.models.response_models import HospitalResponse, DoctorResponse, AppointmentResponse
 
 # sqlalchemy imports
@@ -98,3 +99,13 @@ class HospitalService(SessionMixin):
     def get_hospital_appointments(self, hospital_id: int, filters: dict[str, Any]) -> List[AppointmentResponse]:
         return self._appointment_manager.get_hospital_appointments(hospital_id, filters)
         
+    def add_doctor(self, hospital_id: int, doctor_id: int) -> None:
+        doc: Doctor | None = DoctorManager(self.session).get_doctor_by_id(doctor_id)
+        if doc is None:
+            raise NameError("doctor not found")
+        
+        if doc.hospital_id is None:
+            doc.hospital_id = hospital_id
+            self.session.commit()
+        else:
+            raise ValueError("method not allowed")

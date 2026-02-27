@@ -1,14 +1,17 @@
 # fastapi imports
 from fastapi import Request, Depends, HTTPException, APIRouter, status
-from ...auth.dependencies import user_auth_guard, enforce_hospital_privilege#, get_tenant_id
+from ...auth.dependencies import user_auth_guard, enforce_hospital_privilege, enforce_admin_privilege#, get_tenant_id
 
 # database imports
-from ...database.models.response_models import HospitalResponse, UserResponse, DoctorResponse
+from ...database.models.response_models import (
+    HospitalResponse, UserResponse,
+    DoctorResponse, AppointmentResponse
+)
 from sqlalchemy.orm import Session
 from ...database.sessions import create_session
 
 # model imports
-from .models import HospitalForm, HospitalUpdateForm, Location
+from .models import HospitalForm, HospitalUpdateForm, Location, AppointmentFilter
 from .service import HospitalService
 
 from typing import List
@@ -19,7 +22,7 @@ secure_router = APIRouter(
 )
 
 @secure_router.post("/", response_model=HospitalResponse,
-            status_code=status.HTTP_201_CREATED, dependencies=[Depends(enforce_hospital_privilege)]
+            status_code=status.HTTP_201_CREATED, dependencies=[Depends(enforce_admin_privilege)]
         )
 async def create_hospital(
     request: Request,
@@ -160,4 +163,24 @@ async def get_hospital_doctors(
             detail=str(e),
         )
 
+
+@router.get("/{hospital_id}/appointments", response_model=List[AppointmentResponse], 
+            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_admin_privilege)])
+async def get_hospital_appointments(
+    request: Request,
+    hospital_id: int,
+    filters: AppointmentFilter = Depends(),
+    session: Session = Depends(create_session)
+) -> List[AppointmentResponse]:
+    try:
+        return HospitalService(session).get_hospital_appointments(
+            hospital_id = hospital_id,
+            filters = filters.model_dump(exclude_none=True)
+        )
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="error fetching hospital appointments"
+        )
+   
 router.include_router(secure_router)

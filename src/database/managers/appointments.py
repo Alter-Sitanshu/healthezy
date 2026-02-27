@@ -3,7 +3,7 @@ from sqlalchemy import select
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
-from ..models.tenants import Appointment, Patient
+from ..models.tenants import Appointment, Patient, Doctor
 from ..models.response_models import AppointmentResponse
 from typing import Any, List
 
@@ -20,6 +20,14 @@ class AppointmentManager(BaseDatabase):
 
     def cancel(self, appointment: Appointment) -> None:
         appointment.status = "CANCELLED"
+        self.session.commit()
+    
+    def invalidate(self, appointment: Appointment) -> None:
+        appointment.status = "INVALID"
+        self.session.commit()
+
+    def validate(self, appointment: Appointment) -> None:
+        appointment.status = "COMPLETE"
         self.session.commit()
 
     def get_appointment_by_id(self, appointment_id: int) -> Appointment:
@@ -61,7 +69,19 @@ class AppointmentManager(BaseDatabase):
         return self.get_all(stmt)
     
     def get_hospital_appointments(self, hospital_id: int, filters: dict[str, Any]) -> List[AppointmentResponse]:
-        query = select(Appointment).where(Appointment.hospital_id == hospital_id)
+        query = (
+            select(
+                Appointment,
+                Patient.first_name.label("patient_first_name"),
+                Patient.last_name.label("patient_last_name"),
+                Doctor.first_name.label("doctor_first_name"),
+                Doctor.last_name.label("doctor_last_name"),
+                Doctor.doctor_code
+            )
+            .join(Patient, Appointment.patient_id == Patient.id)
+            .join(Doctor, Appointment.doctor_id == Doctor.id)
+            .where(Appointment.hospital_id == hospital_id)
+        )
         if filters.get("status"):
             query = query.where(Appointment.status == filters["status"])
 
@@ -76,3 +96,18 @@ class AppointmentManager(BaseDatabase):
 
         result = self.get_all(select_stmt=query)
         return self.adapter.validate_python(result)
+    
+    def get_appointments_by_doctor(self, doctor_id: int) -> List[Any]:
+        stmt = (
+            select(
+                Appointment,
+                Patient.first_name.label("patient_first_name"),
+                Patient.last_name.label("patient_last_name"),
+                Doctor.first_name.label("doctor_first_name"),
+                Doctor.last_name.label("doctor_last_name")
+            )
+            .join(Patient, Appointment.patient_id == Patient.id)
+            .join(Doctor, Appointment.doctor_id == Doctor.id)
+            .where(Appointment.doctor_id == doctor_id)
+        )
+        return self.get_all(stmt)

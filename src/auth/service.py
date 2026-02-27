@@ -94,10 +94,44 @@ class AuthService(SessionMixin, HashingMixin):
         )
         return self._user_manager.add_user(user_model)
     
+    async def create_hos_admin(self, payload: SignUpForm) -> UserResponse:
+        # temp_user = self._user_manager.potential_user(payload.email)
+        # if temp_user is None or not temp_user.is_verified:
+        #     raise ValueError("user credentials not verified")
+        user_model = User(
+            # tenant_id=USER_TENANT_ID,
+            email=payload.email,
+            password=self.encrypt(payload.password),
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            phone_number=payload.phone_number,
+            role=payload.role,
+            phone_verified=True,
+            is_active=False,
+        )
+        return self._user_manager.add_user(user_model)
+    
+    async def create_lab_admin(self, payload: SignUpForm) -> UserResponse:
+        # temp_user = self._user_manager.potential_user(payload.email)
+        # if temp_user is None or not temp_user.is_verified:
+        #     raise ValueError("user credentials not verified")
+        user_model = User(
+            # tenant_id=USER_TENANT_ID,
+            email=payload.email,
+            password=self.encrypt(payload.password),
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            phone_number=payload.phone_number,
+            role=payload.role,
+            phone_verified=True,
+            is_active=False,
+        )
+        return self._user_manager.add_user(user_model)
+    
     async def create_admin(self, payload: AdminForm) -> None:
         if payload.admin_secret != ADMIN_SECRET:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="access denied. unauthorised"
             )
         user_model = User(
@@ -273,6 +307,6 @@ class AuthService(SessionMixin, HashingMixin):
     # def get_hospital_admin(self, id: int, tenant_id: int) -> UserResponse:
     #     return self._user_manager.get_hospital_admin(id, tenant_id)
 
-    def get_hospital_admin(self, id: int) -> UserResponse:
-        return self._user_manager.get_hospital_admin(id)
+    def get_user_by_id(self, id: int) -> UserResponse:
+        return self._user_manager.get_user_by_id(id).to_response(exclude_sensitive=True)
         

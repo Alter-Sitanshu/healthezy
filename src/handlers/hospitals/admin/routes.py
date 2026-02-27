@@ -8,7 +8,7 @@ from ....database.sessions import create_session
 # security imports
 from ....auth.dependencies import (
     enforce_hospital_privilege,
-    user_auth_guard, enforce_admin_privilege #, get_tenant_id, verify_tenant
+    user_auth_guard #, get_tenant_id, verify_tenant
 )
 from ..models import AppointmentFilter
 
@@ -19,13 +19,13 @@ from ....auth.models import SignUpForm
 from ....database.models.response_models import UserResponse, HospitalResponse, AppointmentResponse
 from typing import List
 
-router = APIRouter(
+secure_router = APIRouter(
     dependencies=[Depends(user_auth_guard)]
 )
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED,
-        dependencies=[Depends(enforce_admin_privilege)]         
-    )
+router = APIRouter()
+
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_hospital_admin(
     form: SignUpForm,
     # tenant_id: int = Depends(get_tenant_id),
@@ -39,9 +39,9 @@ async def create_hospital_admin(
     #         detail="invalid tenant, access denied"
     #     )
     
-    return await service.create_user(form)
+    return await service.create_hos_admin(form)
 
-@router.get("/{admin_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@secure_router.get("/{admin_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 async def get_hospital_admin(
     request: Request,
     admin_id: int,
@@ -55,7 +55,7 @@ async def get_hospital_admin(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="unauthorised request. access denied"
             )
-        return AuthService(session).get_hospital_admin(
+        return AuthService(session).get_user_by_id(
             admin_id#, tenant_id
         )
     except:
@@ -64,7 +64,7 @@ async def get_hospital_admin(
             detail="malformed request. access denied"
         )
 
-@router.get("/my_hospital", response_model=HospitalResponse,
+@secure_router.get("/my_hospital", response_model=HospitalResponse,
         dependencies=[Depends(enforce_hospital_privilege)]        
     )
 async def get_my_hospital(
@@ -93,9 +93,9 @@ async def get_my_hospital(
             detail="could not fetch admin hospital"
         )
 
-@router.get("/appointments", response_model=List[AppointmentResponse], 
+@secure_router.get("my_hospital/appointments", response_model=List[AppointmentResponse], 
             status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)])
-async def get_appointments(
+async def get_my_hospital_appointments(
     request: Request,
     filters: AppointmentFilter = Depends(),
     session: Session = Depends(create_session)
@@ -116,3 +116,38 @@ async def get_appointments(
             detail="error fetching hospital appointments"
         )
     
+@secure_router.put("/add/{doctor_id}", response_model=None, 
+            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)])
+async def add_doctor(
+    request: Request,
+    doctor_id: int,
+    session: Session = Depends(create_session)
+) -> None:
+    """
+        this method adds an existing doctor to a new organistaion(hos/clinic)
+        if the doctor already belongs to some hos/clinic, this throws error 400
+        if the doctor id is not valid this throws a error 404 -> redirect the user to 
+        create a new doctor page
+    """
+    try:
+        if request.state.user.hospital_id is None:
+            raise HTTPException(
+                detail="invalid request. no hospital found",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        HospitalService(session).add_doctor(
+            request.state.user.hospital_id, doctor_id
+        )
+    except NameError:
+        raise HTTPException(
+            detail="invalid credentials entered",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    except ValueError:
+        raise HTTPException(
+            detail="method not allowed",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+
+router.include_router(secure_router)

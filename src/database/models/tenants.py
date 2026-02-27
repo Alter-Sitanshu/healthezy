@@ -10,7 +10,7 @@ from .response_models import (
     PatientResponse, DepartmentResponse,
     DoctorResponse, AppointmentResponse,
     DoctorScheduleResp, DoctorScheduleExpResp,
-    HospitalResponse
+    HospitalResponse, LabResponse, LabTestResponse
 )
 from datetime import datetime, date, time
 from typing import Optional, List, TYPE_CHECKING
@@ -288,6 +288,7 @@ class Hospital(Base):
     established_year: Mapped[int] = mapped_column(Integer, nullable=False)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_rejected: Mapped[bool] = mapped_column(Boolean, default=False)
     # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
@@ -358,3 +359,118 @@ class Appointment(Base):
 
     def to_response(self) -> AppointmentResponse:
         return AppointmentResponse.model_validate(self)
+
+class Lab(Base):
+    __tablename__ = "labs"
+
+    id: Mapped[int] = mapped_column(BigInteger, autoincrement=True, primary_key=True)
+    lab_code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[Optional[str]] = mapped_column(String(100), comment="Pathology, Diagnostic, Imaging, etc.")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Location details
+    address: Mapped[str] = mapped_column(Text, nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(100), nullable=False)
+    zip_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), default="INDIA")
+
+    # Contact information
+    phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Operating hours
+    is24x7: Mapped[bool] = mapped_column(Boolean, default=False)
+    opening_time: Mapped[Optional[time]] = mapped_column(Time(timezone=True), nullable=True)
+    closing_time: Mapped[Optional[time]] = mapped_column(Time(timezone=True), nullable=True)
+
+    # Hospital association
+    hospital_id: Mapped[Optional[int]] = mapped_column(ForeignKey("hospitals.id"), nullable=True, comment="Associated hospital if any")
+
+    # License & credentials
+    license_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    accreditation: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, comment="e.g., NABL, ISO certified")
+    established_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Geographic coordinates
+    latitude: Mapped[Decimal] = mapped_column(DECIMAL(10, 8, asdecimal=True), nullable=False)
+    longitude: Mapped[Decimal] = mapped_column(DECIMAL(11, 8, asdecimal=True), nullable=False)
+
+    # Media
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_rejected: Mapped[bool] = mapped_column(Boolean, default=False)
+    # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    # Audit
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="labs_created_by"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="labs_updated_by"), nullable=True)
+
+    # Relationships
+    hospital: Mapped[Optional["Hospital"]] = relationship("Hospital")
+    tests: Mapped[List["LabTest"]] = relationship("LabTest", back_populates="lab", passive_deletes=True)
+
+    __table_args__ = (
+        Index("idx_lab_code", "lab_code"),
+        # Index("idx_tenant_id", "tenant_id"),
+        Index("idx_lab_city", "city"),
+        Index("idx_lab_is_active", "is_active")
+    )
+
+    def to_response(self) -> LabResponse:
+        return LabResponse.model_validate(self)
+
+class LabTest(Base):
+    __tablename__ = "lab_tests"
+
+    id: Mapped[int] = mapped_column(BigInteger, autoincrement=True, primary_key=True)
+    lab_id: Mapped[int] = mapped_column(ForeignKey("labs.id", ondelete="CASCADE"), nullable=False)
+    
+    test_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Test categorization
+    category: Mapped[str] = mapped_column(String(100), nullable=False, comment="Blood, Urine, Imaging, etc.")
+    
+    # Test specifications
+    turnaround_time_hours: Mapped[int] = mapped_column(Integer, nullable=False, comment="Hours required to get results")
+    sample_type: Mapped[str] = mapped_column(String(100), nullable=False, comment="Blood, Urine, Saliva, etc.")
+    
+    # Pricing
+    test_price: Mapped[Decimal] = mapped_column(DECIMAL(10, 2, asdecimal=True), nullable=False)
+    
+    # Reference values
+    normal_range: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, comment="e.g., 4.5-11.0")
+    unit_of_measurement: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, comment="e.g., 10^3/uL")
+    
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    # Audit
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="lab_test_created_by"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="lab_test_updated_by"), nullable=True)
+
+    # Relationships
+    lab: Mapped["Lab"] = relationship("Lab", back_populates="tests")
+
+    __table_args__ = (
+        Index("idx_lab_test_lab_id", "lab_id"),
+        Index("idx_lab_test_code", "test_code"),
+        # Index("idx_tenant_id", "tenant_id"),
+        Index("idx_lab_test_category", "category"),
+        Index("idx_lab_test_is_active", "is_active")
+    )
+
+    def to_response(self) -> LabTestResponse:
+        return LabTestResponse.model_validate(self)
+    

@@ -61,10 +61,4 @@ class Location(BaseModel):
     longitude: Annotated[Decimal, Field(ge=-180, le=180, max_digits=11, decimal_places=8)]
     radius_km: NonNegativeInt
 
-class HospitalAdminForm(BaseModel):
-    email: EmailStr
-    phone_number: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=20, pattern=r"^\+?\d{10,15}$")]
-    first_name: str
-    last_name: str
-    password: Annotated[str, StringConstraints(min_length=8)]
 

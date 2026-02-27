@@ -10,7 +10,7 @@ from ...database.sessions import create_session
 from sqlalchemy.orm import Session
 from ...auth.dependencies import user_auth_guard, enforce_hospital_privilege#, get_tenant_id
 from ...auth.models import TokenSchema
-from typing import List
+from typing import List, Any
 
 
 router = APIRouter()
@@ -195,6 +195,47 @@ async def delete_doctor(
             detail=str(e)
         )
 
+@router.put("/manage/{doctor_id}", status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]        
+    )
+async def manage_doctor_details(
+    request: Request,
+    doctor_id: int,
+    form: DoctorUpdateForm,
+    session: Session = Depends(create_session),
+) -> None:
+    updates: str = form.model_dump_json(exclude_none=True, exclude_unset=True)
+    if len(updates) == 0:
+        raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="empty update payload"
+            )
+    try:
+        await DoctorService(session).manage_doctor(
+            doctor_id, request.state.user.id,
+            form.model_dump(exclude_none=True)
+        )
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"could not update doctor <Id:{doctor_id}>"
+        )
+  
+@router.get("/{doctor_id}/apppointments", response_model=List[Any],
+        status_code=status.HTTP_200_OK, dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]
+    )
+async def get_doctor_appointments(
+    doctor_id: int,
+    session: Session = Depends(create_session)
+) -> List[Any]:
+    try:
+        return DoctorService(session).get_doctor_appointments(doctor_id)
+    except:
+        raise HTTPException(
+            detail="request could not be served. try again later",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        
 router.include_router(
     secure_router
 )
