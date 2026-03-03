@@ -83,7 +83,8 @@ class Patient(Base):
         Index("idx_patient_code", "patient_code"),
         # Index("idx_tenant_id", "tenant_id"),
         Index("idx_patients_email", "email"),
-        Index("idx_phone", "phone_number")
+        Index("idx_phone", "phone_number"),
+        Index("idx_patients_created_at", "created_at"),
     )
 
     @property

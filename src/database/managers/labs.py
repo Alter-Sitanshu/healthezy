@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select, text, and_
+from sqlalchemy import select, text, and_, update
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -122,32 +122,30 @@ class LabManager(BaseDatabase):
 
         return self.lab_adapter.validate_python(hospitals)
 
-    def update_lab(self, lab_id: int, payload: dict[str, Any], updated_by: int,  admin_id: int | None = None,) -> None:
+    def update_lab(self, 
+        lab_id: int, payload: dict[str, Any], 
+        updator: dict[str, Any]) -> None:
         """Update lab details"""
+        updated_by = updator["updator_id"]
         try:
-            if admin_id:
-                lab: Lab | None = self.get_one(
-                    select(Lab)
+            if updator["is_admin"]:
+                self.session.execute(
+                    update(Lab)
+                    .where(
+                        Lab.id == lab_id
+                    ).values(payload, updated_by = updated_by)
+                )
+            else:
+                self.session.execute(
+                    update(Lab)
                     .where(
                         and_(
                             Lab.id == lab_id,
-                            Lab.created_by == admin_id,
+                            Lab.created_by == updated_by,
                         )
-                ))
-            else:
-                lab: Lab | None = self.get_one(
-                    select(Lab)
-                    .where(
-                            Lab.id == lab_id
-                    ))
-            if lab is None:
-                raise ManagerException("Lab", f"Lab with ID {lab_id} not found")
+                    ).values(payload, updated_by = updated_by)
+                )
             
-            for key, value in payload.items():
-                if hasattr(lab, key) and key not in ["id", "lab_code", "created_at", "created_by"]:
-                    setattr(lab, key, value)
-            
-            lab.updated_by = updated_by
             self.session.commit()
         except Exception as e:
             self.session.rollback()

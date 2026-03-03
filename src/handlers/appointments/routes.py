@@ -53,17 +53,16 @@ async def cancel_appointment(
             detail=str(e)
         )
 
-@router.put("/{appointment_id}", status_code=status.HTTP_200_OK,
-        response_model=AppointmentResponse)
+@router.put("/{appointment_id}", status_code=status.HTTP_200_OK)
 async def update_appointment(
     request: Request,
     appointment_id: int,
     form: UpdateAppointment,
     session: Session = Depends(create_session)
-) -> AppointmentResponse:
+) -> None:
     current_user = request.state.user
     try:
-        return AppointmentService(session).update_appointment(
+        AppointmentService(session).update_appointment(
             current_user.id, appointment_id, form
         )
     except Exception as e:

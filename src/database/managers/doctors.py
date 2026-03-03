@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, defer
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -151,14 +151,15 @@ class DoctorManager(BaseDatabase):
         
         self.delete_one(target)
 
-    def update(self, id: int, payload: dict[str, Any]) -> DoctorResponse:
-        target: Doctor | None = self.get_one(select(Doctor).where(Doctor.id == id))
-        if target is None:
-            raise ManagerException("Doctor", "doctor not found")
-        for key, value in payload.items():
-            setattr(target, key, value)
+    def update(self, id: int, payload: dict[str, Any]) -> None:
+        stmt = (
+            update(Doctor)
+            .where(Doctor.id == id)
+            .values(payload, updated_by = id)
+        )
+
+        self.session.execute(stmt)
         self.session.commit()
-        return target.to_response()
     
     def update_by_admin(self, id: int, admin_id: int, payload: dict[str, Any]) -> DoctorResponse:
         target: Doctor | None = self.get_one(

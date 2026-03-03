@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, update
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -35,10 +35,12 @@ class PatientManager(BaseDatabase):
         target: Patient = self.get_patient_by_id(patient_id)
         self.delete_one(target)
     
-    def update_patient(self, patient_id: int, updates: dict[str, Any]) -> None:
-        patient: Patient = self.get_patient_by_id(patient_id)
-        for key, value in updates.items():
-            setattr(patient, key, value)
+    def update_patient(self, patient_id: int, updates: dict[str, Any], updated_by: int) -> None:
+        self.session.execute(
+            update(Patient).where(
+                Patient.id == patient_id
+            ).values(updates, updated_by = updated_by)
+        )
         self.session.commit()
 
     def all_patients(self) -> List[Patient]:

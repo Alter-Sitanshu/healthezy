@@ -12,12 +12,14 @@ settings = get_settings()
 DATABASE_URL: str = settings.database_url
 
 # Create the SessionMaker class to create sessions
+engine = create_engine(
+    url=DATABASE_URL,
+    echo=False, #OPTION: change when needed to debug
+    pool_pre_ping=True,
+)
+
 SessionLocal = sessionmaker(
-    bind=create_engine(
-        url=DATABASE_URL,
-        echo=False, #OPTION: change when needed to debug
-        pool_pre_ping=True,
-    ),
+    bind=engine,
     autoflush=False,
     autocommit=False,
     expire_on_commit=False

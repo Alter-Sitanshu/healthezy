@@ -113,9 +113,7 @@ class PatientService(SessionMixin):
             try:
                 # Convert Pydantic model to dict, excluding None values
                 update_dict = updates.model_dump(exclude_unset=True, exclude_none=True)
-                if 'updated_by' not in update_dict:
-                    update_dict['updated_by'] = user_id
-                self._patient_manager.update_patient(patient_id, update_dict)
+                self._patient_manager.update_patient(patient_id, update_dict, user_id)
             except:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -126,9 +124,7 @@ class PatientService(SessionMixin):
                 if p.id == patient_id:
                     # Convert Pydantic model to dict, excluding None values
                     update_dict = updates.model_dump(exclude_unset=True, exclude_none=True)
-                    if 'updated_by' not in update_dict:
-                        update_dict['updated_by'] = user_id
-                    self._patient_manager.update_patient(patient_id, update_dict)
+                    self._patient_manager.update_patient(patient_id, update_dict, user_id)
             else:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

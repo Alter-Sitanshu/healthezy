@@ -67,6 +67,7 @@ class User(Base):
         Index("idx_users_email", "email"),
         # Index("idx_tenant_id", "tenant_id"),
         Index("idx_role", "role"),
+        Index("idx_users_created_at", "created_at")
     )
     
     def __repr__(self):

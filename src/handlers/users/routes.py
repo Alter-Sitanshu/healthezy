@@ -83,4 +83,8 @@ async def update_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="payload cannot be empty"
         )
-    UserService(session).update_details(target_user_id, payload)
+    UserService(session).update_details(
+        target_user_id, 
+        payload, 
+        updated_by=request.state.user.id
+    )

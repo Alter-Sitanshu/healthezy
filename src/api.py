@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import ORJSONResponse
 
 # utility imports
 from contextlib import asynccontextmanager
@@ -53,6 +54,7 @@ app = FastAPI(
     root_path="/api/v1",
     docs_url="/docs",
     lifespan=lifespan,
+    default_response_class=ORJSONResponse,
 )
 # Add CORS support
 app.add_middleware(

@@ -34,7 +34,6 @@ async def get_doctor_schedules(
 
 @secure_router.post("", status_code=status.HTTP_201_CREATED)
 async def add_schedule(
-    request: Request,
     schedule: SchedulePayload,
     session: Session = Depends(create_session),
     # tenant_id: int = Depends(get_tenant_id),
@@ -53,14 +52,18 @@ async def edit_schedule(
     payload: ScheduleUpdatePayload,
     session: Session = Depends(create_session),
 ) -> None:
-    is_payload_empty = len(payload.model_dump_json(exclude_none=True)) == 0
+    is_payload_empty = len(payload.model_dump(exclude_none=True)) == 0
     if is_payload_empty:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="empty payload not allowed"
         )
     try:
-        DoctorService(session).edit_schedule(schedule_id, payload.model_dump(exclude_none=True))
+        DoctorService(session).edit_schedule(
+            schedule_id,
+            request.state.doctor.id,
+            payload.model_dump(exclude_none=True)
+        )
     except:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

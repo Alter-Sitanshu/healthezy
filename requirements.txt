@@ -10,4 +10,5 @@ python-jose[cryptography]==3.3.0
 asyncpg
 pydantic_settings
 alembic==1.7.2
+redis
 psycopg2-binary

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, update
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -52,13 +52,15 @@ class AppointmentManager(BaseDatabase):
         
         return model
     
-    def update_appointment(self, appointment_id: int, update_data: dict[str, Any]) -> Appointment:
-        appointment = self.get_appointment_by_id(appointment_id)
-        for key, value in update_data.items():
-            if hasattr(appointment, key) and value is not None:
-                setattr(appointment, key, value)
+    def update_appointment(self, appointment_id: int, update_data: dict[str, Any], updated_by: int) -> None:
+        stmt = (
+            update(Appointment)
+            .where(Appointment.id == appointment_id)
+            .values(update_data, updated_by = updated_by)
+        )
+
+        self.session.execute(stmt)
         self.session.commit()
-        return appointment
     
     def get_appointments_by_user(self, user_id: int) -> List[Appointment]:
         stmt = select(Appointment).join(
@@ -67,6 +69,17 @@ class AppointmentManager(BaseDatabase):
                 Patient.created_by == user_id
             )
         return self.get_all(stmt)
+    
+    def get_appointment_for_update(self, appointment_id: int, user_id: int) -> int | None:
+        target = self.get_one(
+            select(Appointment.id)
+            .join(Patient, Appointment.patient_id == Patient.id)
+            .where(
+                Patient.created_by == user_id
+            )
+        )
+
+        return target
     
     def get_hospital_appointments(self, hospital_id: int, filters: dict[str, Any]) -> List[AppointmentResponse]:
         query = (

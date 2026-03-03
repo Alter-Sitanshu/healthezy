@@ -56,14 +56,16 @@ class AppointmentService(SessionMixin):
         
         self._appointment_manager.cancel(appointment)
     
-    def update_appointment(self, user_id: int, appointment_id: int, update_data: UpdateAppointment) -> AppointmentResponse:
-        appointment = self._appointment_manager.get_appointment_by_id(appointment_id)
-        patient = self._appointment_manager.get_patient(appointment.patient_id)
-        if patient.creator.id != user_id:
+    def update_appointment(self, user_id: int, appointment_id: int, update_data: UpdateAppointment) -> None:
+        appointment = self._appointment_manager.get_appointment_for_update(appointment_id, user_id)
+        if not appointment:
             raise ValueError("unauthorised access")
         
-        updated = self._appointment_manager.update_appointment(appointment_id, update_data.model_dump(exclude_unset=True))
-        return updated.to_response()
+        self._appointment_manager.update_appointment(
+            appointment_id, 
+            update_data.model_dump(exclude_unset=True),
+            user_id
+        )
     
     def get_my_appointments(self, user_id: int) -> List[AppointmentResponse]:
         appointments = self._appointment_manager.get_appointments_by_user(user_id)

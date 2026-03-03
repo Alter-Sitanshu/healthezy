@@ -67,11 +67,38 @@ class ScheduleManager(BaseDatabase):
         
         return model
 
-    def update(self, model: Any, payload: dict[str, Any]) -> None:
-        for key, value in payload.items():
-            setattr(model, key, value)
+    def update_schedule(self, schedule_id: int, doctor_id: int, payload: dict[str, Any]) -> None:
+        try:
+            self.session.execute(
+                update(DoctorSchedule).where(
+                    and_(
+                        DoctorSchedule.id == schedule_id,
+                        DoctorSchedule.doctor_id == doctor_id
+                    )
+                ).values(payload)
+            )
+            self.session.commit()
+        except:
+            raise ManagerException(
+                "Schedule", "cannot update doctor schedule <{}>".format(schedule_id)
+            )
 
-        self.session.commit()
+    def update_schedule_exception(self, exception_id: int, doctor_id: int, payload: dict[str, Any]) -> None:
+        try:
+            self.session.execute(
+                update(DoctorScheduleExceptions).where(
+                    and_(
+                        DoctorScheduleExceptions.id == exception_id,
+                        DoctorScheduleExceptions.doctor_id == doctor_id
+                    )
+                ).values(payload)
+            )
+            self.session.commit()
+        except:
+            raise ManagerException(
+                "ScheduleException", "cannot update doctor schedule <{}>".format(exception_id)
+            )
+
 
     def get_bookings(self, doctor_id: int, target_date: date) -> List[Any]:
         stmt = (

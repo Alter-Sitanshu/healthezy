@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, text
+from sqlalchemy import select, and_, text, update
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -138,7 +138,9 @@ class HospitalManager(BaseDatabase):
             target_obj.verified_by = verified_by
             self.session.commit()
 
-    def update(self, payload: dict[str, Any], hospital_code: str, admin_id: int) -> None:
+    def update(self, 
+        hospital_id: int,
+        payload: dict[str, Any], updator: dict[str, Any]) -> None:
         """
         Updates the target hospital's details. If not found raise exception
         
@@ -147,20 +149,30 @@ class HospitalManager(BaseDatabase):
         :param hospital_code: target hospital code to update
         :type hospital_code: str
         """
-
-        target: Hospital | None = self.get_one(
-            select(Hospital).where(
-                and_(
-                    Hospital.hospital_code == hospital_code,
-                    Hospital.created_by == admin_id
+        updated_by = updator["updator_id"]
+        try:
+            if updator["is_admin"]:
+                self.session.execute(
+                    update(Hospital)
+                    .where(
+                        Hospital.id == hospital_id
+                    ).values(payload, updated_by=updated_by)
                 )
-            )
-        )
-        if target is None:
-            raise ManagerException("Hospital", "invalid hospital code")
-
-        for key, value in payload.items():
-            setattr(target, key, value)
+            else:
+                self.session.execute(
+                    update(Hospital)
+                    .where(
+                        and_(
+                            Hospital.id == hospital_id,
+                            Hospital.created_by == updated_by
+                        )
+                    ).values(payload, updated_by=updated_by)
+                )
+            
+            self.session.commit()
+        except Exception as e:
+            logger.error(f"Error updating hospital: {str(e)}")
+            raise ManagerException("Hospital", "could not update hospital")
         
         self.session.commit()
 

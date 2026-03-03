@@ -108,12 +108,9 @@ class LabService(SessionMixin):
         """Get labs nearby within a specific radius (Km)"""
         return self._lab_manager.get_labs_nearby(lat, long, rad)
     
-    def update_lab(self, lab_id: int, is_superuser: bool, payload: dict[str, Any], updated_by: int) -> None:
+    def update_lab(self, lab_id: int, payload: dict[str, Any], updator: dict[str, Any]) -> None:
         """Update lab details"""
-        if is_superuser:
-            self._lab_manager.update_lab(lab_id, payload, updated_by)
-        else:
-            self._lab_manager.update_lab(lab_id, payload, updated_by, updated_by)
+        self._lab_manager.update_lab(lab_id, payload, updator)
 
     
     def delete_lab(self, lab_id: int, admin_id: int | None = None) -> None:

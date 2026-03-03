@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy.orm import Session, load_only
+from sqlalchemy import select, update
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
@@ -24,7 +24,11 @@ class TenantManager(BaseDatabase):
 			raise ManagerException("Tenant", str(e))
 
 	def get_tenant_by_id(self, id: int) -> TenantResponse | None:
-		tenant: Tenant | None = self.get_one(select(Tenant).where(Tenant.id == id))
+		tenant: Tenant | None = self.get_one(
+			select(Tenant)
+			.options(load_only(Tenant.id, Tenant.tenant_code, Tenant.subdomain))
+			.where(Tenant.id == id)
+		)
 		if tenant is None:
 			return tenant
 
@@ -49,15 +53,11 @@ class TenantManager(BaseDatabase):
 		return tenant.to_response()
 
 	def update(self, payload: dict[str, Any], tenant_code: str) -> None:
-		target: Tenant | None = self.get_one(
-			select(Tenant).where(Tenant.tenant_code == tenant_code)
+		self.session.execute(
+			update(Tenant).where(
+				Tenant.tenant_code == tenant_code
+			).values(payload)
 		)
-		if target is None:
-			raise ManagerException("Tenant", f"invalid tenant code<{tenant_code}>")
-
-		for key, value in payload.items():
-			setattr(target, key, value)
-
 		self.session.commit()
 
 	def delete(self, tenant_code: str) -> None:

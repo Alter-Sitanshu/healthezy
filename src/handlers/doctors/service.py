@@ -170,9 +170,9 @@ class DoctorService(SessionMixin, HashingMixin):
         except Exception as e:
             raise ValueError(str(e))
     
-    async def update_doctor(self, doctor_id: int, payload: dict[str, Any]) -> DoctorResponse:
+    async def update_doctor(self, doctor_id: int, payload: dict[str, Any]) -> None:
         try:
-            return self._doctor_manager.update(doctor_id, payload)
+            self._doctor_manager.update(doctor_id, payload)
         except Exception as e:
             raise ValueError(str(e))
         
@@ -204,11 +204,8 @@ class DoctorService(SessionMixin, HashingMixin):
         except:
             return False
         
-    def edit_schedule(self, schedule_id: int, payload: dict[str, Any]):
-        target: DoctorSchedule | None = self._schedule_manager.get_schedule_by_id(schedule_id)
-        if target is None:
-            raise ValueError("Schedule", f"schedule{id} does not exist")
-        self._schedule_manager.update(target, payload)
+    def edit_schedule(self, schedule_id: int, doctor_id: int, payload: dict[str, Any]):
+        self._schedule_manager.update_schedule(schedule_id, doctor_id, payload)
 
     def delete_schedule(self, id: int) -> None:
         self._schedule_manager.drop_schedule(id)
@@ -331,12 +328,8 @@ class DoctorService(SessionMixin, HashingMixin):
         self._schedule_manager.delete_one(exception)
 
     def update_exception(self, doc_id:int, exception_id: int, payload: UpdateException) -> None:
-        exception = self._schedule_manager.get_exception_by_id(exception_id)
-        if exception.doctor_id != doc_id:
-            raise ValueError("unauthorised access")
-        
-        self._schedule_manager.update(
-            exception, payload.model_dump(exclude_none=True)
+        self._schedule_manager.update_schedule_exception(
+            exception_id, doc_id, payload.model_dump(exclude_none=True)
         )
 
     def get_doctor_appointments(self, doctor_id: int) -> List[Any]:

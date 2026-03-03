@@ -105,8 +105,8 @@ class HospitalService(SessionMixin):
     def get_hospital_by_code(self, hospital_code: str) -> HospitalResponse | None:
         return self._hospital_manager.get_hospital_by_code(hospital_code)
     
-    def update_details(self, payload: dict[str, Any], hospital_code: str, admin_id: int) -> None:
-        self._hospital_manager.update(payload, hospital_code, admin_id)
+    def update_details(self, payload: dict[str, Any], hospital_id: int, updator: dict[str, Any]) -> None:
+        self._hospital_manager.update(hospital_id, payload, updator)
     
     def delete(self, hospital_code: str, admin_id: int) -> None:
         self._hospital_manager.delete(hospital_code, admin_id)

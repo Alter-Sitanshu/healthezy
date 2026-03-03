@@ -16,6 +16,7 @@ from .service import HospitalService
 
 from typing import List
 
+
 router = APIRouter()
 secure_router = APIRouter(
     dependencies=[Depends(user_auth_guard)]
@@ -58,31 +59,35 @@ async def withdraw_application(
         )
 
 
-@secure_router.put("/{hospital_code}", status_code=status.HTTP_200_OK,
+@secure_router.put("/{hospital_id}", status_code=status.HTTP_200_OK,
         dependencies=[Depends(enforce_hospital_privilege)]
     )
 async def update_hospital_details(
     request: Request,
-    hospital_code: str,
+    hospital_id: int,
     update_form: HospitalUpdateForm,
     session: Session = Depends(create_session)
 ) -> None:
-    is_payload_empty = len(update_form.model_dump_json(exclude_none=True)) == 0
+    is_payload_empty = len(update_form.model_dump(exclude_none=True)) == 0
     if is_payload_empty:
         raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="empty update payload"
             )
     try:
+        updator = {
+                "is_admin": request.state.user.is_superuser,
+                "updator_id": request.state.user.id
+            }
         HospitalService(session).update_details(
             update_form.model_dump(exclude_none=True), 
-            hospital_code,
-            request.state.user.id,
+            hospital_id,
+            updator,
         )
     except:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"cannot update hospital details for <{hospital_code}>"
+            detail=f"cannot update hospital details for <{hospital_id}>"
         )
 
 @secure_router.delete("/{hospital_code}", status_code=status.HTTP_200_OK,

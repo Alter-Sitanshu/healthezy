@@ -163,7 +163,7 @@ class UserManager(BaseDatabase):
         self.session.commit()
         return True
     
-    def update_user(self, user_id: int, payload: UserUpdateForm) -> None:
+    def update_user(self, user_id: int, payload: UserUpdateForm, updated_by: int) -> None:
         """
         Updates a user details which are permissible
         
@@ -189,7 +189,7 @@ class UserManager(BaseDatabase):
         
         for key, value in update_data.items():
             setattr(model, key, value)
-        
+        setattr(model, "updated_by", updated_by)
         self.session.commit()
     
     def get_admins(self, provider: str, isactive: bool | None) -> List[User]:

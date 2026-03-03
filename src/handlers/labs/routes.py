@@ -190,13 +190,15 @@ async def update_lab(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No data provided for update"
         )
-    
+    updator = {
+                "is_admin": request.state.user.is_superuser,
+                "updator_id": request.state.user.id
+            }
     try:
         LabService(session).update_lab(
             lab_id,
-            request.state.user.is_superuser,
             payload,
-            request.state.user.id,
+            updator
         )
         return {"message": f"Lab {lab_id} updated successfully"}
     except ValueError as e:

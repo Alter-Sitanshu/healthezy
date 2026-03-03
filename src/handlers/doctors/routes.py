@@ -155,14 +155,15 @@ async def update_doctor_details(
     form: DoctorUpdateForm,
     session: Session = Depends(create_session),
 ) -> None:
-    updates: str = form.model_dump_json(exclude_none=True, exclude_unset=True)
+    updates: dict[str, Any] = form.model_dump(exclude_none=True, exclude_unset=True)
     if len(updates) == 0:
         raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="empty update payload"
             )
     try:
-        await DoctorService(session).update_doctor(doctor_id, form.model_dump(exclude_none=True))
+        await DoctorService(session).update_doctor(
+            doctor_id, form.model_dump(exclude_none=True))
     except:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -204,7 +205,7 @@ async def manage_doctor_details(
     form: DoctorUpdateForm,
     session: Session = Depends(create_session),
 ) -> None:
-    updates: str = form.model_dump_json(exclude_none=True, exclude_unset=True)
+    updates: dict[str, Any] = form.model_dump(exclude_none=True, exclude_unset=True)
     if len(updates) == 0:
         raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
