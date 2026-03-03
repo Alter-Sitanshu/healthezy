@@ -37,3 +37,8 @@ class BaseDatabase(SessionMixin):
     def delete_one(self, model: Any) -> None:
         self.session.delete(model)
         self.session.commit()
+
+    def execute_stmt(self, stmt: Executable) -> Any:
+        res = self.session.execute(stmt)
+        self.session.commit()
+        return res

@@ -3,20 +3,20 @@ from fastapi import Request, Depends, APIRouter, status, HTTPException
 
 # database imports
 from sqlalchemy.orm import Session
-from ....database.sessions import create_session
+from ...database.sessions import create_session
 
 # security imports
-from ....auth.dependencies import (
+from ...auth.dependencies import (
     enforce_hospital_privilege,
     user_auth_guard #, get_tenant_id, verify_tenant
 )
-from ..models import AppointmentFilter
+from .models import AppointmentFilter
 
 # utility imports
-from ....auth.service import AuthService
-from ..service import HospitalService
-from ....auth.models import SignUpForm
-from ....database.models.response_models import UserResponse, HospitalResponse, AppointmentResponse
+from ...auth.service import AuthService
+from .service import HospitalService
+from ...auth.models import SignUpForm
+from ...database.models.response_models import UserResponse, HospitalResponse, AppointmentResponse
 from typing import List
 
 secure_router = APIRouter(
@@ -25,7 +25,11 @@ secure_router = APIRouter(
 
 router = APIRouter()
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", 
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED
+)
 async def create_hospital_admin(
     form: SignUpForm,
     # tenant_id: int = Depends(get_tenant_id),
@@ -93,7 +97,7 @@ async def get_my_hospital(
             detail="could not fetch admin hospital"
         )
 
-@secure_router.get("my_hospital/appointments", response_model=List[AppointmentResponse], 
+@secure_router.get("/my_hospital/appointments", response_model=List[AppointmentResponse], 
             status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)])
 async def get_my_hospital_appointments(
     request: Request,

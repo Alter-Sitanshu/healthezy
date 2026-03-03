@@ -3,7 +3,7 @@ from sqlalchemy import select, text, and_
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
-from ..models.tenants import Lab, LabTest
+from ..models.tenants import Lab, LabTest, LabApplications
 from ..models.response_models import LabResponse, LabTestResponse
 from typing import Any, List
 from pydantic import TypeAdapter
@@ -27,15 +27,30 @@ class LabManager(BaseDatabase):
         self.lab_adapter = TypeAdapter(List[LabResponse])
         self.test_adapter = TypeAdapter(List[LabTestResponse])
     
-    def add_lab(self, lab: Lab) -> LabResponse:
+    def add_lab(self, lab: Lab) -> int:
         """Add a new lab to the database"""
         try:
             self.add_one(lab)
-            return lab.to_response()
+            return lab.id
         except Exception as e:
             logger.error(f"Error adding lab: {str(e)}")
             raise ManagerException("Lab", "could not add lab")
     
+    def add_lab_application(self, application: LabApplications) -> LabResponse:
+        """Add a lab application to the database"""
+        try:
+            self.add_one(application)
+            return application.to_response()
+        
+        except Exception as e:
+            logger.error(f"Error adding lab: {str(e)}")
+            raise ManagerException("Lab", "could not add lab application")
+
+    def get_application_by_id(self, application_id: int) -> LabApplications | None:
+        return self.get_one(
+            select(LabApplications).where(LabApplications.id == application_id)
+        )
+
     def get_lab_by_id(self, lab_id: int) -> LabResponse | None:
         """Fetch lab by ID"""
         lab: Lab | None = self.get_one(select(Lab).where(Lab.id == lab_id))
@@ -107,10 +122,24 @@ class LabManager(BaseDatabase):
 
         return self.lab_adapter.validate_python(hospitals)
 
-    def update_lab(self, lab_id: int, payload: dict[str, Any], updated_by: int) -> None:
+    def update_lab(self, lab_id: int, payload: dict[str, Any], updated_by: int,  admin_id: int | None = None,) -> None:
         """Update lab details"""
         try:
-            lab: Lab | None = self.get_one(select(Lab).where(Lab.id == lab_id))
+            if admin_id:
+                lab: Lab | None = self.get_one(
+                    select(Lab)
+                    .where(
+                        and_(
+                            Lab.id == lab_id,
+                            Lab.created_by == admin_id,
+                        )
+                ))
+            else:
+                lab: Lab | None = self.get_one(
+                    select(Lab)
+                    .where(
+                            Lab.id == lab_id
+                    ))
             if lab is None:
                 raise ManagerException("Lab", f"Lab with ID {lab_id} not found")
             
@@ -125,14 +154,28 @@ class LabManager(BaseDatabase):
             logger.error(f"Error updating lab: {str(e)}")
             raise ManagerException("Lab", "could not update lab")
     
-    def delete_lab(self, lab_id: int) -> None:
+    def delete_lab(self, lab_id: int, admin_id: int | None = None) -> None:
         """Delete lab"""
         try:
-            lab: Lab | None = self.get_one(select(Lab).where(Lab.id == lab_id))
+            if admin_id:
+                lab: Lab | None = self.get_one(
+                    select(Lab)
+                    .where(
+                        and_(
+                            Lab.id == lab_id,
+                            Lab.created_by == admin_id,
+                        )
+                    ))
+            else:
+                lab: Lab | None = self.get_one(
+                    select(Lab)
+                    .where(
+                        Lab.id == lab_id
+                    ))
             if lab is None:
                 raise ManagerException("Lab", f"Lab with ID {lab_id} not found")
-            
-            self.delete_one(lab)
+            lab.is_active = False
+            self.session.commit()
         except Exception as e:
             logger.error(f"Error deleting lab: {str(e)}")
             raise ManagerException("Lab", "could not delete lab")
@@ -172,32 +215,32 @@ class LabManager(BaseDatabase):
             logger.error(f"Error deleting lab test: {str(e)}")
             raise ManagerException("LabTest", "could not delete lab test")
 
-    def get_applications(self) -> List[Lab]:
+    def get_pending_applications(self) -> List[Lab]:
         return self.get_all(
-            select(Lab).where(
+            select(LabApplications).where(
                 and_(
-                    Lab.is_active == False,
-                    Lab.is_rejected != True,
+                    LabApplications.status == "PENDING",
                 )
             )
         )
 
-    def approve(self, id_: int) -> None:
-        target_obj = self.get_one(
-            select(Lab).where(
-                Lab.id == id_
+    def get_under_review_applications(self) -> List[Lab]:
+        return self.get_all(
+            select(LabApplications).where(
+                and_(
+                    LabApplications.status == "REVIEW",
+                )
             )
         )
-        if target_obj is not None:
-            target_obj.is_active = True
-            self.session.commit()
 
-    def reject(self, id_: int) -> None:
-        target_obj = self.get_one(
-            select(Lab).where(
-                Lab.id == id_
+
+    def set_application_status(self, id_: int, status: str, verified_by: int) -> LabResponse | None:
+        target_obj: LabApplications | None = self.get_one(
+            select(LabApplications).where(
+                LabApplications.id == id_
             )
         )
         if target_obj is not None:
-            target_obj.is_rejected = True
+            target_obj.status = status
+            target_obj.verified_by = verified_by
             self.session.commit()

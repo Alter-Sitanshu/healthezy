@@ -3,7 +3,7 @@ from sqlalchemy import select, and_, text
 from .manager import BaseDatabase
 from ...exceptions import ManagerException
 
-from ..models.tenants import Hospital #Doctor
+from ..models.tenants import Hospital, HospitalApplications #Doctor
 from ..models.response_models import (
     HospitalResponse, DoctorResponse
 )
@@ -30,23 +30,39 @@ class HospitalManager(BaseDatabase):
         super().__init__(session)
         self.adapter = TypeAdapter(List[HospitalResponse])
     
-    def add_hospital(self, hospital: Hospital) -> HospitalResponse:
+    def add_hospital(self, hospital: Hospital) -> int:
         """
         Adds the hospital instance to the database
         
         :param hospital: Hospital instance
         :type hospital: Hospital
-        :return: HospitalResponse object
-        :rtype: HospitalResponse
+        :return: ID of the new hospital created
+        :rtype: int
         """
         try:
             self.add_one(hospital)
-            return hospital.to_response()
+            return hospital.id
 
         except Exception as e:
             logger.error("{}".format(str(e)))
             raise ManagerException("Hospital", "could not add hospital")
     
+    def add_hospital_application(self, application: HospitalApplications) -> None:
+        """
+        Adds the hospital application to the database
+        
+        :param application: Hospital application
+        :type application: HospitalApplications
+        :return: None
+        :rtype: None
+        """
+        try:
+            self.add_one(application)
+
+        except Exception as e:
+            logger.error("{}".format(str(e)))
+            raise ManagerException("Hospital", "could not add hospital application")
+
     def get_hospital_by_id(self, id: int) -> HospitalResponse | None:
         """
         fetches the hospital for the given id. if not found returns None
@@ -62,6 +78,19 @@ class HospitalManager(BaseDatabase):
         
         return hospital.to_response()
     
+    def get_application_by_id(self, id: int) -> HospitalApplications | None:
+        """
+        fetches the application for the given id. if not found returns None
+
+        :param id: hospital application id
+        :type id: int 
+        :return: HospitalApplications object or None
+        :rtype: HospitalApplications | None
+        """
+        return self.get_one(
+            select(HospitalApplications).where(HospitalApplications.id == id))
+    
+
     def get_hospital_by_code(self, hospital_code: str) -> HospitalResponse | None:
         """
         fetches the hospital for the given code. if not found returns None
@@ -84,34 +113,29 @@ class HospitalManager(BaseDatabase):
             select(Hospital)
         )
     
-    def get_applications(self) -> List[Hospital]:
+    def get_pending_applications(self) -> List[HospitalApplications]:
         return self.get_all(
-            select(Hospital).where(
-                and_(
-                    Hospital.is_active == False,
-                    Hospital.is_rejected != True
-                )
+            select(HospitalApplications).where(
+                HospitalApplications.status == "PENDING"
             )
         )
     
-    def approve(self, id_: int) -> None:
-        target_obj = self.get_one(
-            select(Hospital).where(
-                Hospital.id == id_
+    def get_under_review_applications(self) -> List[HospitalApplications]:
+        return self.get_all(
+            select(HospitalApplications).where(
+                HospitalApplications.status == "PENDING"
             )
         )
-        if target_obj is not None:
-            target_obj.is_active = True
-            self.session.commit()
 
-    def reject(self, id_: int) -> None:
-        target_obj = self.get_one(
-            select(Hospital).where(
-                Hospital.id == id_
+    def set_application_status(self, id_: int, status: str, verified_by: int) -> None:
+        target_obj: HospitalApplications | None = self.get_one(
+            select(HospitalApplications).where(
+                HospitalApplications.id == id_
             )
         )
         if target_obj is not None:
-            target_obj.is_rejected = True
+            target_obj.status = status
+            target_obj.verified_by = verified_by
             self.session.commit()
 
     def update(self, payload: dict[str, Any], hospital_code: str, admin_id: int) -> None:

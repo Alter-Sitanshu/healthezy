@@ -288,7 +288,7 @@ class Hospital(Base):
     established_year: Mapped[int] = mapped_column(Integer, nullable=False)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_rejected: Mapped[bool] = mapped_column(Boolean, default=False)
+    # is_rejected: Mapped[bool] = mapped_column(Boolean, default=False)
     # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
@@ -403,7 +403,7 @@ class Lab(Base):
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_rejected: Mapped[bool] = mapped_column(Boolean, default=False)
+    # is_rejected: Mapped[bool] = mapped_column(Boolean, default=False)
     # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     # Audit
@@ -473,4 +473,114 @@ class LabTest(Base):
 
     def to_response(self) -> LabTestResponse:
         return LabTestResponse.model_validate(self)
+    
+class LabApplications(Base):
+    __tablename__ = "labs_applications"
+
+    id: Mapped[int] = mapped_column(BigInteger, autoincrement=True, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[Optional[str]] = mapped_column(String(100), comment="Pathology, Diagnostic, Imaging, etc.")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Location details
+    address: Mapped[str] = mapped_column(Text, nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(100), nullable=False)
+    zip_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), default="INDIA")
+
+    # Contact information
+    phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Operating hours
+    is24x7: Mapped[bool] = mapped_column(Boolean, default=False)
+    opening_time: Mapped[Optional[time]] = mapped_column(Time(timezone=True), nullable=True)
+    closing_time: Mapped[Optional[time]] = mapped_column(Time(timezone=True), nullable=True)
+
+    # Hospital association
+    # Don't need to make a relation as this will be verified by the Admin
+    hospital_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, comment="Associated hospital if any")
+
+    # License & credentials
+    license_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    accreditation: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, comment="e.g., NABL, ISO certified")
+    established_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Geographic coordinates
+    latitude: Mapped[Decimal] = mapped_column(DECIMAL(10, 8, asdecimal=True), nullable=False)
+    longitude: Mapped[Decimal] = mapped_column(DECIMAL(11, 8, asdecimal=True), nullable=False)
+
+    # Media
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # Status
+    status: Mapped[str] = mapped_column(String(20), default="PENDING",
+                            comment="PENDING, REVIEW, ACCEPTED, REJECTED, WITHDRAWN")
+    # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    # Audit
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="labs_appllied_by"), nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None, onupdate=func.now())
+    verified_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="labs_verified_by"), nullable=True)
+    __table_args__ = (
+        # Index("idx_tenant_id", "tenant_id"),
+        Index("idx_appl_lab_city", "city"),
+        Index("idx_appl_lab_status", "status")
+    )
+
+    def to_response(self) -> LabResponse:
+        return LabResponse.model_validate(self)
+
+class HospitalApplications(Base):
+    
+    __tablename__ = "hospitals_applications"
+
+    id: Mapped[int] = mapped_column(BigInteger, autoincrement=True, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[Optional[str]] = mapped_column(String(50))
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    address: Mapped[str] = mapped_column(Text, nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(100), nullable=False)
+    zip_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), default="INDIA")
+
+    phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    emergency_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    is24x7: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    total_beds: Mapped[int] = mapped_column(Integer, default=0)
+    available_beds: Mapped[int] = mapped_column(Integer, default=0)
+    
+    latitude: Mapped[Decimal] = mapped_column(DECIMAL(10, 8, asdecimal=True))
+    longitude: Mapped[Decimal] = mapped_column(DECIMAL(11, 8, asdecimal=True))
+
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    license_number: Mapped[str] = mapped_column(String(100))
+    accreditation: Mapped[str] = mapped_column(String(200))
+    established_year: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    status: Mapped[str] = mapped_column(String(20), default="PENDING",
+                            comment="PENDING, REVIEW, ACCEPTED, REJECTED, WITHDRAWN")
+    # tenant_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="hospitals_applied_by"), nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None, onupdate=func.now())
+    verified_by: Mapped[int] = mapped_column(ForeignKey("users.id", name="hospitals_verified_by"), nullable=True)
+   
+    __table_args__ = (
+        Index("idx_appl_hospital_status", "status"),
+        # Index("idx_tenant_id", "tenant_id"),
+        Index("idx_appl_hospital_city", "city")
+    )
+
+    def to_response(self) -> HospitalResponse:
+        return HospitalResponse.model_validate(self)
     

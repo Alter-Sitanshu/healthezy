@@ -1,7 +1,8 @@
 # database imports
 from ...database.managers.manager import SessionMixin
 from ...database.managers.labs import LabManager
-from ...database.models.tenants import Lab, LabTest
+from ...database.managers.users import UserManager
+from ...database.models.tenants import Lab, LabTest, LabApplications
 from ...database.models.response_models import LabResponse, LabTestResponse
 
 # sqlalchemy imports
@@ -15,6 +16,13 @@ from uuid import uuid4
 from pydantic import TypeAdapter
 from typing import List, Any
 from decimal import Decimal
+from enum import Enum
+
+class ApplStatus(Enum):
+    ACCEPT="ACCEPTED"
+    REJECT="REJECTED"
+    REVIEW="REVIEW"
+    WITHDRAW="WITHDRAWN"
 
 
 class LabService(SessionMixin):
@@ -24,39 +32,61 @@ class LabService(SessionMixin):
         self.adapter = TypeAdapter(List[LabResponse])
         self.test_adapter = TypeAdapter(List[LabTestResponse])
 
-    async def create_lab(self, 
-                        lab_data: NewLab,
-                        created_by: int
-                        ) -> LabResponse:
+    async def create_lab(self, appl: LabApplications) -> int:
         """Create a new lab"""
         generated_code = f"LAB-{uuid4().hex[:8].upper()}"
         lab = Lab(
             lab_code=generated_code,
-            name=lab_data.name,
-            type=lab_data.type,
-            description=lab_data.description,
-            address=lab_data.address,
-            city=lab_data.city,
-            state=lab_data.state,
-            zip_code=lab_data.zip_code,
-            country=lab_data.country,
-            phone_number=lab_data.phone_number,
-            email=lab_data.email,
-            website=str(lab_data.website) if lab_data.website else None,
-            is24x7=lab_data.is24x7,
-            opening_time=lab_data.opening_time,
-            closing_time=lab_data.closing_time,
-            hospital_id=lab_data.hospital_id,
-            license_number=lab_data.license_number,
-            accreditation=lab_data.accreditation,
-            established_year=lab_data.established_year,
-            latitude=lab_data.latitude,
-            longitude=lab_data.longitude,
-            created_by=created_by,
-            updated_by=created_by,
-            is_active=False
+            name=appl.name,
+            type=appl.type,
+            description=appl.description,
+            address=appl.address,
+            city=appl.city,
+            state=appl.state,
+            zip_code=appl.zip_code,
+            country=appl.country,
+            phone_number=appl.phone_number,
+            email=appl.email,
+            website=str(appl.website) if appl.website else None,
+            is24x7=appl.is24x7,
+            opening_time=appl.opening_time,
+            closing_time=appl.closing_time,
+            hospital_id=appl.hospital_id,
+            license_number=appl.license_number,
+            accreditation=appl.accreditation,
+            established_year=appl.established_year,
+            latitude=appl.latitude,
+            longitude=appl.longitude,
+            created_by=appl.created_by,
+            updated_by=appl.created_by
         )
         return self._lab_manager.add_lab(lab)
+
+    async def submit_lab_application(self, appl: NewLab, submitted_by: int) -> LabResponse:
+        lab = LabApplications(
+            name=appl.name,
+            type=appl.type,
+            description=appl.description,
+            address=appl.address,
+            city=appl.city,
+            state=appl.state,
+            zip_code=appl.zip_code,
+            country=appl.country,
+            phone_number=appl.phone_number,
+            email=appl.email,
+            website=str(appl.website) if appl.website else None,
+            is24x7=appl.is24x7,
+            opening_time=appl.opening_time,
+            closing_time=appl.closing_time,
+            hospital_id=appl.hospital_id,
+            license_number=appl.license_number,
+            accreditation=appl.accreditation,
+            established_year=appl.established_year,
+            latitude=appl.latitude,
+            longitude=appl.longitude,
+            created_by=submitted_by,
+        )
+        return self._lab_manager.add_lab_application(lab)
 
     def get_lab_by_id(self, lab_id: int) -> LabResponse | None:
         """Get lab by ID"""
@@ -78,13 +108,40 @@ class LabService(SessionMixin):
         """Get labs nearby within a specific radius (Km)"""
         return self._lab_manager.get_labs_nearby(lat, long, rad)
     
-    def update_lab(self, lab_id: int, payload: dict[str, Any], updated_by: int) -> None:
+    def update_lab(self, lab_id: int, is_superuser: bool, payload: dict[str, Any], updated_by: int) -> None:
         """Update lab details"""
-        self._lab_manager.update_lab(lab_id, payload, updated_by)
+        if is_superuser:
+            self._lab_manager.update_lab(lab_id, payload, updated_by)
+        else:
+            self._lab_manager.update_lab(lab_id, payload, updated_by, updated_by)
+
     
-    def delete_lab(self, lab_id: int) -> None:
+    def delete_lab(self, lab_id: int, admin_id: int | None = None) -> None:
         """Delete a lab"""
-        self._lab_manager.delete_lab(lab_id)
+        self._lab_manager.delete_lab(lab_id, admin_id)
+
+    async def approve(self, application_id: int, verified_by: int) -> None:
+        appl: LabApplications | None = self._lab_manager.get_application_by_id(application_id)
+        if appl is None:
+            raise ValueError("invalid credentials provided. appplication does not exist")
+        
+        self._lab_manager.set_application_status(
+            application_id, ApplStatus.ACCEPT.value, verified_by
+        )
+
+        lab_id: int = await self.create_lab(appl)
+        UserManager(self.session).link_admin(appl.created_by, lab_id)
+
+
+    def reject(self, application_id: int, verified_by: int) -> None:
+        self._lab_manager.set_application_status(
+            application_id, ApplStatus.REJECT.value, verified_by
+        )
+    
+    def withdraw(self, application_id: int, created_by: int) -> None:
+        self._lab_manager.set_application_status(
+            application_id, ApplStatus.WITHDRAW.value, created_by
+        )
 
     async def create_lab_test(self, 
                              lab_id: int,

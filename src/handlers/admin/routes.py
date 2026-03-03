@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, Request, HTTPException
 from ...auth.service import AuthService
 from .service import AdminService
 
@@ -42,9 +42,10 @@ async def create_superadmin(
 )
 async def get_applications(
     for_: Literal["hospital", "lab"],
+    status: Literal["pending", "under_review"],
     session: Session = Depends(create_session)
 ) -> List[Any]:
-    return AdminService(session).get_applications(for_)
+    return AdminService(session).get_applications(for_, status)
 
 @secure_router.get(
     "/users", 
@@ -73,22 +74,36 @@ async def get_all_patients(
     status_code=status.HTTP_204_NO_CONTENT
 )
 async def approve_entity(
+    request: Request,
     entity: Literal["hospitals", "labs"],
     id_: int,
     session: Session = Depends(create_session)
 ) -> None:
-   AdminService(session).approve(entity, id_) 
+    try:
+        await AdminService(session).approve(entity, id_, verified_by=request.state.user.id) 
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @secure_router.patch(
     "/{entity}/reject/{id_}",
     status_code=status.HTTP_204_NO_CONTENT
 )
 async def reject_entity(
+    request: Request,
     entity: Literal["hospitals", "labs"],
     id_: int,
     session: Session = Depends(create_session)
 ) -> None:
-   AdminService(session).reject(entity, id_) 
+    try:   
+        AdminService(session).reject(entity, id_, verified_by=request.state.user.id) 
+    except Exception as e :
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @secure_router.get(
     "/provider_admin",
@@ -96,7 +111,7 @@ async def reject_entity(
     status_code=status.HTTP_200_OK
 )
 async def get_provider_admins(
-    provider: Literal["hospital", "lab"] = Depends(),
+    provider: Literal["hospital", "lab"],
     isactive: bool | None = None,
     session: Session = Depends(create_session)
 ) -> List[UserResponse]:

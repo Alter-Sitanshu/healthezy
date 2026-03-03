@@ -1,6 +1,6 @@
 # fastapi imports
 from fastapi import Request, Depends, HTTPException, APIRouter, status
-from ...auth.dependencies import user_auth_guard, enforce_admin_privilege
+from ...auth.dependencies import user_auth_guard, enforce_lab_admin_privilege, enforce_admin_privilege
 
 # database imports
 from ...database.models.response_models import LabResponse, LabTestResponse, UserResponse
@@ -22,7 +22,7 @@ router = APIRouter()
 
 # Secure router for authenticated admin endpoints
 secure_router = APIRouter(
-    dependencies=[Depends(user_auth_guard)]
+    dependencies=[Depends(user_auth_guard), Depends(enforce_lab_admin_privilege)]
 )
 
 
@@ -30,7 +30,8 @@ secure_router = APIRouter(
 @router.post(
     "/admin/register", 
     response_model=UserResponse, 
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(enforce_admin_privilege)]
 )
 async def create_lab_admin(
     form: SignUpForm,
@@ -46,22 +47,6 @@ async def create_lab_admin(
     #     )
     
     return await service.create_lab_admin(form)
-
-
-@router.post("/", 
-    response_model=LabResponse,
-    status_code=status.HTTP_201_CREATED, 
-    dependencies=[Depends(user_auth_guard)],
-)
-async def create_lab(
-    request: Request,
-    lab_data: NewLab,
-    session: Session = Depends(create_session),
-) -> LabResponse:
-    """Create a new lab (is_Active=False)"""
-    current_user: UserResponse = request.state.user
-    return await LabService(session).create_lab(lab_data, created_by=current_user.id)
-
 
 
 @router.get("/", 
@@ -158,10 +143,39 @@ async def get_lab_tests(
 
 
 # ==================== SECURED ROUTES ====================
+@secure_router.post("/applications", 
+    response_model=LabResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_lab_application(
+    request: Request,
+    lab_data: NewLab,
+    session: Session = Depends(create_session),
+) -> LabResponse:
+    """Submit the New Lab registration form"""
+    current_user: UserResponse = request.state.user
+    return await LabService(session).submit_lab_application(lab_data, submitted_by=current_user.id)
+
+@secure_router.patch(
+    "/applications/{application_id}/withdraw", 
+    status_code=status.HTTP_200_OK,
+)
+async def withdraw_application(
+    request: Request,
+    application_id: int,
+    session: Session = Depends(create_session)
+) -> None:
+    try:
+        LabService(session).withdraw(application_id, request.state.user.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
 @secure_router.put("/{lab_id}", 
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(enforce_admin_privilege)],
 )
 async def update_lab(
     request: Request,
@@ -180,6 +194,7 @@ async def update_lab(
     try:
         LabService(session).update_lab(
             lab_id,
+            request.state.user.is_superuser,
             payload,
             request.state.user.id,
         )
@@ -198,7 +213,6 @@ async def update_lab(
 
 @secure_router.delete("/{lab_id}", 
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(enforce_admin_privilege)],
 )
 async def delete_lab(
     request: Request,
@@ -207,7 +221,10 @@ async def delete_lab(
 ) -> dict[str, str]:
     """Delete a lab (Admin only)"""
     try:
-        LabService(session).delete_lab(lab_id)
+        admin_id: int | None = None
+        if not request.state.user.is_superuser:
+            admin_id = request.state.user.id
+        LabService(session).delete_lab(lab_id, admin_id)
         return {"message": f"Lab {lab_id} deleted successfully"}
     except ValueError as e:
         raise HTTPException(
@@ -224,7 +241,6 @@ async def delete_lab(
 @secure_router.post("/{lab_id}/tests", 
     response_model=LabTestResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(enforce_admin_privilege)],
 )
 async def create_lab_test(
     request: Request,
@@ -233,17 +249,10 @@ async def create_lab_test(
     session: Session = Depends(create_session),
 ) -> LabTestResponse:
     """Add a new test to a lab (Admin only)"""
-    # Get lab by code first
-    lab: LabResponse | None = LabService(session).get_lab_by_id(lab_id)
-    if lab is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Lab with ID {lab_id} not found"
-        )
     
     try:
         current_user: UserResponse = request.state.user
-        return await LabService(session).create_lab_test(lab.id, test_data, created_by=current_user.id)
+        return await LabService(session).create_lab_test(lab_id, test_data, created_by=current_user.id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -258,7 +267,6 @@ async def create_lab_test(
 
 @secure_router.delete("/{lab_id}/tests/{test_id}", 
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(enforce_admin_privilege)],
 )
 async def delete_lab_test(
     request: Request,

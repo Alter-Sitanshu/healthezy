@@ -21,10 +21,11 @@ secure_router = APIRouter(
     dependencies=[Depends(user_auth_guard)]
 )
 
-@secure_router.post("/", response_model=HospitalResponse,
-            status_code=status.HTTP_201_CREATED, dependencies=[Depends(enforce_admin_privilege)]
-        )
-async def create_hospital(
+@secure_router.post("/applications", response_model=HospitalResponse,
+        status_code=status.HTTP_201_CREATED,
+        dependencies=[Depends(enforce_hospital_privilege)]
+    )
+async def submit_hospital_application(
     request: Request,
     form: HospitalForm,
     session: Session = Depends(create_session),
@@ -35,7 +36,27 @@ async def create_hospital(
     current_user: UserResponse = request.state.user
     return await HospitalService(
         session
-    ).create_hospital(form, created_by=current_user.id)
+    ).submit_hospital_application(form, submitted_by=current_user.id)
+
+
+@secure_router.patch(
+    "/applications/{application_id}/withdraw", 
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(enforce_hospital_privilege)]
+)
+async def withdraw_application(
+    request: Request,
+    application_id: int,
+    session: Session = Depends(create_session)
+) -> None:
+    try:
+        HospitalService(session).withdraw(application_id, request.state.user.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
 @secure_router.put("/{hospital_code}", status_code=status.HTTP_200_OK,
         dependencies=[Depends(enforce_hospital_privilege)]
@@ -164,7 +185,7 @@ async def get_hospital_doctors(
         )
 
 
-@router.get("/{hospital_id}/appointments", response_model=List[AppointmentResponse], 
+@secure_router.get("/{hospital_id}/appointments", response_model=List[AppointmentResponse], 
             status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_admin_privilege)])
 async def get_hospital_appointments(
     request: Request,

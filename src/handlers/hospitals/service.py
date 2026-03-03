@@ -3,7 +3,8 @@ from ...database.managers.manager import SessionMixin
 from ...database.managers.hospitals import HospitalManager
 from ...database.managers.appointments import AppointmentManager
 from ...database.managers.doctors import DoctorManager
-from ...database.models import Hospital, Doctor
+from ...database.managers.users import UserManager
+from ...database.models import Hospital, Doctor, HospitalApplications
 from ...database.models.response_models import HospitalResponse, DoctorResponse, AppointmentResponse
 
 # sqlalchemy imports
@@ -17,6 +18,13 @@ from uuid import uuid4
 from pydantic import TypeAdapter
 from typing import List, Any
 from decimal import Decimal
+from enum import Enum
+
+class ApplStatus(Enum):
+    ACCEPT="ACCEPTED"
+    REJECT="REJECTED"
+    REVIEW="REVIEW"
+    WITHDRAW="WITHDRAWN"
 
 class HospitalService(SessionMixin):
     def __init__(self, session: Session) -> None:
@@ -25,10 +33,7 @@ class HospitalService(SessionMixin):
         self._appointment_manager = AppointmentManager(session)
         self.adapter = TypeAdapter(List[HospitalResponse])
 
-    async def create_hospital(self, 
-                              hospital: HospitalForm,
-                              created_by: int
-                            ) -> HospitalResponse:
+    async def create_hospital(self, hospital: HospitalApplications) -> int:
         generated_code = f"HOS-{uuid4().hex[:8].upper()}"
         hosp = Hospital(
             hospital_code=generated_code,
@@ -53,10 +58,40 @@ class HospitalService(SessionMixin):
             license_number=hospital.license_number,
             accreditation=hospital.accreditation,
             established_year=hospital.established_year,
-            created_by=created_by,
-            updated_by=created_by,
+            created_by=hospital.created_by,
+            updated_by=hospital.created_by,
         )
         return self._hospital_manager.add_hospital(hosp)
+
+    async def submit_hospital_application(
+            self, form: HospitalForm, submitted_by: int
+        ) -> HospitalResponse:
+        hosp = HospitalApplications(
+            name=form.name,
+            type=form.name,
+            description=form.description,
+            address=form.address,
+            city=form.city,
+            state=form.state,
+            zip_code=form.zip_code,
+            country=form.country,
+            phone_number=form.phone_number,
+            email=form.email,
+            website=form.website,
+            emergency_number=form.emergency_number,
+            total_beds=form.total_beds,
+            available_beds=form.available_beds,
+            is24x7=form.is24x7,
+            latitude=form.latitude,
+            longitude=form.longitude,
+            logo_url=form.logo_url,
+            license_number=form.license_number,
+            accreditation=form.accreditation,
+            established_year=form.established_year,
+            created_by=submitted_by
+        )
+        self._hospital_manager.add_hospital_application(hosp)
+        return hosp.to_response()
 
     def get_hospital_by_id(self, id: int | None) -> HospitalResponse | None:
         if id is None:
@@ -109,3 +144,26 @@ class HospitalService(SessionMixin):
             self.session.commit()
         else:
             raise ValueError("method not allowed")
+        
+    async def approve(self, application_id: int, verified_by: int) -> None:
+        appl: HospitalApplications | None = self._hospital_manager.get_application_by_id(application_id)
+        if appl is None:
+            raise ValueError("invalid credentials provided. appplication does not exist")
+        
+        self._hospital_manager.set_application_status(
+            application_id, ApplStatus.ACCEPT.value, verified_by
+        )
+
+        hospital_id: int = await self.create_hospital(appl)
+        UserManager(self.session).link_admin(appl.created_by, hospital_id)
+
+
+    def reject(self, application_id: int, verified_by: int) -> None:
+        self._hospital_manager.set_application_status(
+            application_id, ApplStatus.REJECT.value, verified_by
+        )
+    
+    def withdraw(self, application_id: int, created_by: int) -> None:
+        self._hospital_manager.set_application_status(
+            application_id, ApplStatus.WITHDRAW.value, created_by
+        )

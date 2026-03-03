@@ -33,8 +33,13 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    hospital_id: Mapped[int | None] = mapped_column(BigInteger)
-    doctor_id: Mapped[int | None] = mapped_column(BigInteger)
+    # modifying this to entity_id.
+    # Justification: Role is hospital-admin/lab-admin i know the entity type
+    provider_id: Mapped[int | None] = mapped_column(BigInteger)
+    # hospital_id: Mapped[int | None] = mapped_column(BigInteger)
+
+    # separate table to manage doctors. No need for doctors here
+    # doctor_id: Mapped[int | None] = mapped_column(BigInteger)
 
     # user status
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

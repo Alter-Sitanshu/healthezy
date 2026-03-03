@@ -104,6 +104,24 @@ async def enforce_hospital_privilege(
     except:
         raise ValueError("access denied")
 
+async def enforce_lab_admin_privilege(
+    request: Request
+) -> None:
+    try:
+        current_user: UserResponse = request.state.user
+        # if there is no logged in user this raises
+        # a key error and the validation fails
+        role: str = current_user.role.lower()
+        if not current_user.is_superuser and (role != "lab-admin"):
+            logger.info("unauthorised lab admin access by {}".format(current_user.id))
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="privileges required",
+            )
+    except:
+        raise ValueError("access denied")
+
+
 async def enforce_admin_privilege(
     request: Request,
 ) -> None:

@@ -1,4 +1,4 @@
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from sqlalchemy.orm import Session
 from .manager import BaseDatabase
 from ..models.users import User, PotentialUsers, Tenant
@@ -230,3 +230,11 @@ class UserManager(BaseDatabase):
                 )
             case _:
                 raise ValueError("provider type not supported")
+            
+    def link_admin(self, admin_id: int, provider_id: int) -> None:
+        stmt = (
+            update(User)
+            .where(User.id == admin_id)
+            .values(provider_id = provider_id)
+        )
+        self.execute_stmt(stmt)
