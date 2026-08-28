@@ -113,9 +113,12 @@ class LabService(SessionMixin):
         self._lab_manager.update_lab(lab_id, payload, updator)
 
     
-    def delete_lab(self, lab_id: int, admin_id: int | None = None) -> None:
+    def mark_delete_lab(self, lab_id: int, admin_id: int) -> None:
         """Delete a lab"""
-        self._lab_manager.delete_lab(lab_id, admin_id)
+        self._lab_manager.mark_delete(lab_id, admin_id)
+
+    def delete_lab(self, lab_id: int) -> None:
+        self._lab_manager.delete_lab(lab_id)
 
     async def approve(self, application_id: int, verified_by: int) -> None:
         appl: LabApplications | None = self._lab_manager.get_application_by_id(application_id)

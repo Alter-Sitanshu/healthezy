@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, Request
 import logging
 from ..settings import get_settings
 
@@ -7,7 +7,7 @@ from .models import (
     TokenSchema,
     OTPVerifyRequest, OTPResponse,
     SignUpForm, BasicSignUpForm, 
-    LoginRequest
+    LoginRequest, PassResetForm
 )
 from .service import AuthService
 
@@ -162,3 +162,28 @@ async def verify_otp(
         message="User verified successfully",
         token=None
     )
+
+
+@router.patch("/reset_password", status_code=status.HTTP_200_OK)
+async def reset_password(
+    request: Request,
+    form: PassResetForm,
+    session: Session = Depends(create_session)
+) -> None:
+    try:
+        await AuthService(session).change_password(
+            user_id=request.state.user.id,
+            old_password=form.curr_password,
+            new_password=form.new_password
+        )
+
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="password change failed. try again"
+        )
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="unauthorised access"
+        )

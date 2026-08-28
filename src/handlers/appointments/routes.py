@@ -7,7 +7,10 @@ from ...exceptions import ManagerException
 from ...database.sessions import create_session
 from ...database.models.response_models import AppointmentResponse
 from sqlalchemy.orm import Session
+
+# util imports
 from typing import List
+from datetime import datetime
 
 # dependency
 from ...auth.dependencies import user_auth_guard
@@ -108,11 +111,20 @@ async def invalidate_appointment(
 @doctor_router.patch("/completed/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def mark_appointment_completed(
     request: Request,
+    check_in: datetime,
+    check_out: datetime,
     appointment_id: int,
     session: Session = Depends(create_session)
 ) -> None:
     try:
-        AppointmentService(session).mark_completed(appointment_id, request.state.doctor.id)
+        AppointmentService(session).mark_completed(
+            appointment_id, 
+            request.state.doctor.id,
+            {
+                "in": check_in,
+                "out": check_out
+            }
+        )
     except ManagerException:
         raise HTTPException(
             detail="invalid credentials",

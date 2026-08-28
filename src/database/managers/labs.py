@@ -152,28 +152,41 @@ class LabManager(BaseDatabase):
             logger.error(f"Error updating lab: {str(e)}")
             raise ManagerException("Lab", "could not update lab")
     
-    def delete_lab(self, lab_id: int, admin_id: int | None = None) -> None:
-        """Delete lab"""
+    def mark_delete(self, lab_id: int, admin_id: int) -> None:
+        """Mark Delete lab"""
         try:
-            if admin_id:
-                lab: Lab | None = self.get_one(
-                    select(Lab)
-                    .where(
-                        and_(
-                            Lab.id == lab_id,
-                            Lab.created_by == admin_id,
-                        )
-                    ))
-            else:
-                lab: Lab | None = self.get_one(
-                    select(Lab)
-                    .where(
-                        Lab.id == lab_id
-                    ))
+            lab: Lab | None = self.get_one(
+                select(Lab)
+                .where(
+                    and_(
+                        Lab.id == lab_id,
+                        Lab.created_by == admin_id,
+                    )
+                ))
+            
             if lab is None:
                 raise ManagerException("Lab", f"Lab with ID {lab_id} not found")
             lab.is_active = False
+            lab.updated_by = admin_id
             self.session.commit()
+        except Exception as e:
+            logger.error(f"Error deleting lab: {str(e)}")
+            raise ManagerException("Lab", "could not mark delete lab")
+    
+    def delete_lab(self, lab_id: int) -> None:
+        try:
+            lab: Lab | None = self.get_one(
+                select(Lab)
+                .where(
+                    and_(
+                        Lab.id == lab_id,
+                    )
+                ))
+            
+            if lab is None:
+                raise ManagerException("Lab", f"Lab with ID {lab_id} not found")
+            
+            self.delete_one(lab)
         except Exception as e:
             logger.error(f"Error deleting lab: {str(e)}")
             raise ManagerException("Lab", "could not delete lab")

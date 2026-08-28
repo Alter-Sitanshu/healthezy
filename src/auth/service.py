@@ -141,7 +141,7 @@ class AuthService(SessionMixin, HashingMixin):
             first_name=payload.first_name,
             last_name=payload.last_name,
             phone_number=payload.phone_number,
-            role="admin",
+            role=payload.role,
             phone_verified=True,
             is_superuser=True,
         )
@@ -216,6 +216,13 @@ class AuthService(SessionMixin, HashingMixin):
                 )
 
     
+    async def change_password(self, user_id: int, old_password: str, new_password: str) -> None:
+        user: User = self._user_manager.get_user_by_id(id=user_id)
+        if self.verify(old_password, user.password):
+            user.password = self.encrypt(new_password)
+        self.session.commit()
+
+
     def get_user_from_token(self, token: str) -> UserResponse | None:
         try:
             payload = jwt.decode(

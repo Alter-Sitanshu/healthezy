@@ -3,6 +3,9 @@ from fastapi.security import (
     HTTPBearer, HTTPAuthorizationCredentials,
     # APIKeyHeader
 )
+
+from .models import UserRoles
+
 from .service import AuthService
 from ..database.models.response_models import UserResponse#, TenantResponse
 from sqlalchemy.orm import Session
@@ -87,41 +90,6 @@ async def user_auth_guard(
 
 #     return True
 
-async def enforce_hospital_privilege(
-    request: Request
-) -> None:
-    try:
-        current_user: UserResponse = request.state.user
-        # if there is no logged in user this raises
-        # a key error and the validation fails
-        role: str = current_user.role.lower()
-        if not current_user.is_superuser and (role != "hospital-admin"):
-            logger.info("unauthorised hospital admin access by {}".format(current_user.id))
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="privileges required",
-            )
-    except:
-        raise ValueError("access denied")
-
-async def enforce_lab_admin_privilege(
-    request: Request
-) -> None:
-    try:
-        current_user: UserResponse = request.state.user
-        # if there is no logged in user this raises
-        # a key error and the validation fails
-        role: str = current_user.role.lower()
-        if not current_user.is_superuser and (role != "lab-admin"):
-            logger.info("unauthorised lab admin access by {}".format(current_user.id))
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="privileges required",
-            )
-    except:
-        raise ValueError("access denied")
-
-
 async def enforce_admin_privilege(
     request: Request,
 ) -> None:
@@ -137,3 +105,30 @@ async def enforce_admin_privilege(
             )
     except:
         raise ValueError("unauthorised access")
+
+def get_current_user(request: Request) -> UserResponse:
+    try:
+        current_user: UserResponse = request.state.user
+        # if there is no logged in user this raises
+        # a key error and the validation fails
+        return current_user
+    except:
+        raise ValueError("unauthorised access")
+
+def require_role(*roles: UserRoles):
+    def checker(current_admin: UserResponse = Depends(get_current_user)) -> UserResponse:
+        for r in roles:
+            if current_admin.role == r.value:
+                return current_admin
+        else:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+    return checker
+
+def exclude_role(*roles: UserRoles):
+    def checker(current_admin: UserResponse = Depends(get_current_user)) -> UserResponse:
+        for r in roles:
+            if current_admin.role == r.value:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+        else:
+            return current_admin
+    return checker

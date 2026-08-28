@@ -108,8 +108,11 @@ class HospitalService(SessionMixin):
     def update_details(self, payload: dict[str, Any], hospital_id: int, updator: dict[str, Any]) -> None:
         self._hospital_manager.update(hospital_id, payload, updator)
     
-    def delete(self, hospital_code: str, admin_id: int) -> None:
-        self._hospital_manager.delete(hospital_code, admin_id)
+    def delete(self, hospital_id: int, admin_id: int) -> None:
+        self._hospital_manager.delete(hospital_id, admin_id)
+
+    def mark_delete(self, hospital_id: int, admin_id: int) -> None:
+        self._hospital_manager.mark_delete(hospital_id, admin_id)
 
     def find_hospitals_around(self, lat: Decimal, long: Decimal, rad: int) -> List[HospitalResponse]:
         return self._hospital_manager.find_hospitals_around(

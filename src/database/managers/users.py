@@ -150,8 +150,8 @@ class UserManager(BaseDatabase):
         """
         Soft deletes a user entity by marking the user inactive
         
-        :param email: email of the user
-        :type email: str
+        :param user_id: id of the user
+        :type user_id: int
         :return: Delete success/failed
         :rtype: bool
         """
@@ -161,6 +161,24 @@ class UserManager(BaseDatabase):
             return False
         model.soft_delete()
         self.session.commit()
+        return True
+    
+    def delete_user(self, user_id: int) -> bool:
+        """
+        !!! CAUTION !!!
+        Hard deletes a user entity
+        
+        :param user_id: id of the user
+        :type user_id: int
+        :return: Delete success/failed
+        :rtype: bool
+        """
+        model: User | None = self.get_one(select(User).where(User.id == user_id))
+        if not isinstance(model, User):
+            logger.info("user<{}>: invalid access detected".format(user_id))
+            return False
+        
+        self.delete_one(model)
         return True
     
     def update_user(self, user_id: int, payload: UserUpdateForm, updated_by: int) -> None:

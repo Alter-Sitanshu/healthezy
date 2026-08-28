@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, status
 from fastapi.exceptions import HTTPException
-from ...auth.dependencies import user_auth_guard
+from ...auth.dependencies import user_auth_guard, require_role
+from ...auth.models import UserRoles
 
 from .models import *
 from .service import UserService
@@ -16,7 +17,6 @@ def get_current_user(request: Request) -> UserResponse:
 
 
 def authorize_user(
-    request: Request,
     target_user_id: int,
     current_user: UserResponse = Depends(get_current_user)
 ) -> None:
@@ -53,27 +53,54 @@ async def get_my_patient_profiles(
         current_user.id    
     )
 
-@router.delete("/{target_user_id}", status_code=status.HTTP_204_NO_CONTENT,
-        dependencies=[Depends(authorize_user)]  #enforce authority of the user        
-    )
-async def delete_user(
-    request: Request,
-    target_user_id: int,
+@router.put("/deactivate/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        Depends(require_role(
+            UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.NORMAL
+        )),
+        Depends(authorize_user)]  # enforce authority of the user        
+)
+async def deactivate_user(
+    user_id: int,
     session: Session = Depends(create_session) 
 ):
-    success: bool = UserService(session).delete_user(target_user_id)
+    success: bool = UserService(session).mark_delete_user(user_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="user deletion failed",
         )
     
-@router.patch("/{target_user_id}", status_code=status.HTTP_204_NO_CONTENT,
-        dependencies=[ Depends(authorize_user)] # enforce authority of user    
-    )
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        Depends(require_role(
+            UserRoles.SUPERADMIN, UserRoles.ADMIN
+        ))
+    ]  
+)
+async def delete_user(
+    user_id: int,
+    session: Session = Depends(create_session) 
+):
+    success: bool = UserService(session).delete_user(user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="user deletion failed",
+        )
+    
+@router.patch("/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        Depends(require_role(
+            UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.NORMAL
+        )),
+        Depends(authorize_user) # enforce authority of the user      
+    ]  
+)
 async def update_user(
     request: Request,
-    target_user_id: int,
+    user_id: int,
     payload: UserUpdateForm,
     session: Session = Depends(create_session)
 ) -> None:
@@ -84,7 +111,7 @@ async def update_user(
             detail="payload cannot be empty"
         )
     UserService(session).update_details(
-        target_user_id, 
+        user_id, 
         payload, 
         updated_by=request.state.user.id
     )

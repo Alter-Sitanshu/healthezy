@@ -20,8 +20,11 @@ class UserService(SessionMixin):
     def update_details(self, target_user_id: int, payload: UserUpdateForm, updated_by: int) -> None:
         self._user_manager.update_user(target_user_id, payload, updated_by)
 
-    def delete_user(self, target_user_id: int) -> bool:
+    def mark_delete_user(self, target_user_id: int) -> bool:
         return self._user_manager.mark_delete(target_user_id)
+    
+    def delete_user(self, target_user_id: int) -> bool:
+        return self._user_manager.delete_user(target_user_id)
     
     def get_my_patients(self, user_id: int) -> List[PatientResponse]:
         me: User = self._user_manager.get_user_by_id(user_id)

@@ -1,6 +1,7 @@
 # fastapi imports
-from fastapi import Request, Depends, HTTPException, APIRouter, status
-from ...auth.dependencies import user_auth_guard, enforce_hospital_privilege, enforce_admin_privilege#, get_tenant_id
+from fastapi import Depends, HTTPException, APIRouter, status
+from ...auth.dependencies import user_auth_guard, require_role#, get_tenant_id
+from ...auth.models import UserRoles
 
 # database imports
 from ...database.models.response_models import (
@@ -14,7 +15,7 @@ from ...database.sessions import create_session
 from .models import HospitalForm, HospitalUpdateForm, Location, AppointmentFilter
 from .service import HospitalService
 
-from typing import List
+from typing import List, Any
 
 
 router = APIRouter()
@@ -23,35 +24,32 @@ secure_router = APIRouter(
 )
 
 @secure_router.post("/applications", response_model=HospitalResponse,
-        status_code=status.HTTP_201_CREATED,
-        dependencies=[Depends(enforce_hospital_privilege)]
+        status_code=status.HTTP_201_CREATED
     )
 async def submit_hospital_application(
-    request: Request,
     form: HospitalForm,
+    admin: UserResponse = Depends(require_role(UserRoles.HOS, UserRoles.SUPERADMIN, UserRoles.ADMIN)),
     session: Session = Depends(create_session),
     # tenant_id: int = Depends(get_tenant_id),
     # only hospital admins and superadmin can create/register a hospital
 ) -> HospitalResponse:
     
-    current_user: UserResponse = request.state.user
     return await HospitalService(
         session
-    ).submit_hospital_application(form, submitted_by=current_user.id)
+    ).submit_hospital_application(form, submitted_by=admin.id)
 
 
 @secure_router.patch(
     "/applications/{application_id}/withdraw", 
-    status_code=status.HTTP_200_OK,
-    dependencies=[Depends(enforce_hospital_privilege)]
+    status_code=status.HTTP_200_OK
 )
 async def withdraw_application(
-    request: Request,
     application_id: int,
+    admin: UserResponse = Depends(require_role(UserRoles.HOS, UserRoles.SUPERADMIN, UserRoles.ADMIN)),
     session: Session = Depends(create_session)
 ) -> None:
     try:
-        HospitalService(session).withdraw(application_id, request.state.user.id)
+        HospitalService(session).withdraw(application_id, admin.id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -59,13 +57,11 @@ async def withdraw_application(
         )
 
 
-@secure_router.put("/{hospital_id}", status_code=status.HTTP_200_OK,
-        dependencies=[Depends(enforce_hospital_privilege)]
-    )
+@secure_router.put("/{hospital_id}", status_code=status.HTTP_200_OK)
 async def update_hospital_details(
-    request: Request,
     hospital_id: int,
     update_form: HospitalUpdateForm,
+    admin: UserResponse = Depends(require_role(UserRoles.HOS, UserRoles.SUPERADMIN, UserRoles.ADMIN)),
     session: Session = Depends(create_session)
 ) -> None:
     is_payload_empty = len(update_form.model_dump(exclude_none=True)) == 0
@@ -75,9 +71,9 @@ async def update_hospital_details(
                 detail="empty update payload"
             )
     try:
-        updator = {
-                "is_admin": request.state.user.is_superuser,
-                "updator_id": request.state.user.id
+        updator: dict[str, Any] = {
+                "is_admin": admin.is_superuser,
+                "updator_id": admin.id
             }
         HospitalService(session).update_details(
             update_form.model_dump(exclude_none=True), 
@@ -90,23 +86,38 @@ async def update_hospital_details(
             detail=f"cannot update hospital details for <{hospital_id}>"
         )
 
-@secure_router.delete("/{hospital_code}", status_code=status.HTTP_200_OK,
-        dependencies=[Depends(enforce_hospital_privilege)]
-    )
+@secure_router.delete("/delete/{hospital_id}", status_code=status.HTTP_200_OK)
 async def delete_hospital(
-    request: Request,
-    hospital_code: str,
+    hospital_id: int,
+    admin: UserResponse = Depends(require_role(UserRoles.SUPERADMIN, UserRoles.ADMIN)),
     session: Session = Depends(create_session)
 ) -> None:
     try:
-        HospitalService(session).delete(
-            hospital_code, request.state.user.id
+        HospitalService(session).mark_delete(
+            hospital_id, admin.id
         )
     except:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"could not delete hospital <{hospital_code}>"
+            detail=f"could not delete hospital <{hospital_id}>"
         )
+    
+@secure_router.put("/deactivate/{hospital_id}", status_code=status.HTTP_200_OK)
+async def deactivate_hospital(
+    hospital_id: int,
+    admin: UserResponse = Depends(require_role(UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.HOS)),
+    session: Session = Depends(create_session)
+) -> None:
+    try:
+        HospitalService(session).mark_delete(
+            hospital_id, admin.id
+        )
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"could not delete hospital <{hospital_id}>"
+        )
+
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[HospitalResponse])
 async def get_all_hospitals(
@@ -190,12 +201,18 @@ async def get_hospital_doctors(
         )
 
 
-@secure_router.get("/{hospital_id}/appointments", response_model=List[AppointmentResponse], 
-            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_admin_privilege)])
+@secure_router.get(
+    "/{hospital_id}/appointments",
+    response_model=List[AppointmentResponse], 
+    status_code=status.HTTP_200_OK)
 async def get_hospital_appointments(
-    request: Request,
     hospital_id: int,
     filters: AppointmentFilter = Depends(),
+    admin: UserResponse = Depends(
+        require_role(
+            UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.HOS
+        )
+    ),
     session: Session = Depends(create_session)
 ) -> List[AppointmentResponse]:
     try:

@@ -176,11 +176,11 @@ class HospitalManager(BaseDatabase):
         
         self.session.commit()
 
-    def delete(self, hospital_code: str, admin_id: int) -> None:
+    def delete(self, hospital_id: int, admin_id: int) -> None:
         target: Hospital | None = self.get_one(
             select(Hospital).where(
                 and_(
-                    Hospital.hospital_code == hospital_code,
+                    Hospital.id == hospital_id,
                     Hospital.created_by == admin_id
                 )
             )
@@ -189,6 +189,21 @@ class HospitalManager(BaseDatabase):
             raise ManagerException("Hospital", "invalid hospital code")
 
         self.delete_one(target)
+
+    def mark_delete(self, hospital_id: int, admin_id: int) -> None:
+        target: Hospital | None = self.get_one(
+            select(Hospital).where(
+                and_(
+                    Hospital.id == hospital_id,
+                    Hospital.created_by == admin_id
+                )
+            )
+        )
+        if target is None:
+            raise ManagerException("Hospital", "invalid hospital code")
+
+        target.is_active = False
+        self.session.commit()
 
     def find_hospitals_around(self, latitude: Decimal, longitude: Decimal, radius_km: int) -> List[HospitalResponse]:
         """

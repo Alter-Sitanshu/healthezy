@@ -1,0 +1,12 @@
+2026-03-03 05:37:50,326 | INFO     | src.database.sessions | Database connection successful!
+2026-03-03 05:37:50,328 | DEBUG    | src.api | development - Application Start up Complete
+2026-03-03 05:41:02,099 | DEBUG    | src.api | Application Shutdown Completed
+2026-03-03 05:41:07,169 | INFO     | src.database.sessions | Database connection successful!
+2026-03-03 05:41:07,174 | DEBUG    | src.api | development - Application Start up Complete
+2026-03-03 05:41:09,461 | DEBUG    | src.api | Application Shutdown Completed
+2026-03-03 05:41:14,312 | INFO     | src.database.sessions | Database connection successful!
+2026-03-03 05:41:14,315 | DEBUG    | src.api | development - Application Start up Complete
+2026-03-03 05:43:23,408 | DEBUG    | src.api | Application Shutdown Completed
+2026-03-03 12:56:46,065 | INFO     | src.database.sessions | Database connection successful!
+2026-03-03 12:56:46,065 | DEBUG    | src.api | development - Application Start up Complete
+2026-03-03 12:57:07,871 | DEBUG    | src.api | Application Shutdown Completed

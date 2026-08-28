@@ -6,6 +6,7 @@ from ...exceptions import ManagerException
 from ..models.tenants import Appointment, Patient, Doctor
 from ..models.response_models import AppointmentResponse
 from typing import Any, List
+from datetime import datetime
 
 from pydantic import TypeAdapter
 
@@ -26,8 +27,10 @@ class AppointmentManager(BaseDatabase):
         appointment.status = "INVALID"
         self.session.commit()
 
-    def validate(self, appointment: Appointment) -> None:
+    def validate(self, appointment: Appointment, timestamp: dict[str, datetime]) -> None:
         appointment.status = "COMPLETE"
+        appointment.checked_in_at = timestamp["in"]
+        appointment.checked_out_at = timestamp["out"]
         self.session.commit()
 
     def get_appointment_by_id(self, appointment_id: int) -> Appointment:

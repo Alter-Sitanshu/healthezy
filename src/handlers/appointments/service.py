@@ -12,6 +12,7 @@ from .models import *
 from uuid import uuid4
 from pydantic import TypeAdapter
 from typing import List
+from datetime import datetime
 
 class AppointmentService(SessionMixin):
 
@@ -80,11 +81,11 @@ class AppointmentService(SessionMixin):
             )
         self._appointment_manager.invalidate(appointment)
 
-    def mark_completed(self, appointment_id: int, doctor_id: int) -> None:
+    def mark_completed(self, appointment_id: int, doctor_id: int, timestamp: dict[str, datetime]) -> None:
         appointment = self._appointment_manager.get_appointment_by_id(appointment_id)
         if appointment.doctor_id != doctor_id:
             raise HTTPException(
                 detail="unauthorised request",
                 status_code=status.HTTP_401_UNAUTHORIZED
             )
-        self._appointment_manager.validate(appointment)
+        self._appointment_manager.validate(appointment, timestamp)

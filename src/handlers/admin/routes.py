@@ -3,10 +3,10 @@ from ...auth.service import AuthService
 from .service import AdminService
 
 # dependencies
-from ...auth.dependencies import enforce_admin_privilege
+from ...auth.dependencies import require_role, enforce_admin_privilege, exclude_role
 
 # model imports
-from ...auth.models import TokenSchema, AdminForm
+from ...auth.models import TokenSchema, AdminForm, UserRoles
 from ...database.models.response_models import UserResponse, PatientResponse
 
 # database imports
@@ -21,6 +21,7 @@ router = APIRouter()
 secure_router = APIRouter(
     dependencies=[Depends(enforce_admin_privilege)]
 )
+
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=TokenSchema)
 async def create_superadmin(
     form: AdminForm,
@@ -74,13 +75,17 @@ async def get_all_patients(
     status_code=status.HTTP_204_NO_CONTENT
 )
 async def approve_entity(
-    request: Request,
     entity: Literal["hospitals", "labs"],
     id_: int,
+    admin: UserResponse = Depends(
+        require_role(
+            UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.MOD
+        )
+    ),
     session: Session = Depends(create_session)
 ) -> None:
     try:
-        await AdminService(session).approve(entity, id_, verified_by=request.state.user.id) 
+        await AdminService(session).approve(entity, id_, verified_by=admin.id) 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -95,10 +100,15 @@ async def reject_entity(
     request: Request,
     entity: Literal["hospitals", "labs"],
     id_: int,
+    admin: UserResponse = Depends(
+        require_role(
+            UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.MOD
+        )
+    ),
     session: Session = Depends(create_session)
 ) -> None:
     try:   
-        AdminService(session).reject(entity, id_, verified_by=request.state.user.id) 
+        AdminService(session).reject(entity, id_, verified_by=admin.id) 
     except Exception as e :
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -113,6 +123,11 @@ async def reject_entity(
 async def get_provider_admins(
     provider: Literal["hospital", "lab"],
     isactive: bool | None = None,
+    _: UserResponse = Depends(
+        exclude_role(
+            UserRoles.SUPPORT
+        )
+    ),
     session: Session = Depends(create_session)
 ) -> List[UserResponse]:
     return AdminService(session).get_provider_admins(

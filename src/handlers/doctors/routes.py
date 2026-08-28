@@ -8,8 +8,8 @@ from ...database.models.response_models import (
 )
 from ...database.sessions import create_session
 from sqlalchemy.orm import Session
-from ...auth.dependencies import user_auth_guard, enforce_hospital_privilege#, get_tenant_id
-from ...auth.models import TokenSchema
+from ...auth.dependencies import user_auth_guard, require_role#, get_tenant_id
+from ...auth.models import TokenSchema, UserRoles
 from typing import List, Any
 
 
@@ -58,7 +58,12 @@ secure_router = APIRouter(
 )
 
 @router.post("/", response_model=TokenSchema, status_code=status.HTTP_201_CREATED,
-        dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]         
+        dependencies=[
+            Depends(user_auth_guard), 
+            Depends(require_role(
+                UserRoles.HOS, UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.MOD
+            ))
+        ]         
     )
 async def create_doctor(
     request: Request,
@@ -171,7 +176,12 @@ async def update_doctor_details(
         )
     
 @router.delete("/{doctor_id}", status_code=status.HTTP_200_OK,
-        dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]        
+        dependencies=[
+            Depends(user_auth_guard), 
+            Depends(require_role(
+                UserRoles.HOS, UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.MOD
+            ))
+        ]       
     )
 async def delete_doctor(
     request: Request,
@@ -197,7 +207,12 @@ async def delete_doctor(
         )
 
 @router.put("/manage/{doctor_id}", status_code=status.HTTP_204_NO_CONTENT,
-        dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]        
+        dependencies=[
+            Depends(user_auth_guard), 
+            Depends(require_role(
+                UserRoles.HOS, UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.MOD
+            ))
+        ]        
     )
 async def manage_doctor_details(
     request: Request,
@@ -223,7 +238,14 @@ async def manage_doctor_details(
         )
   
 @router.get("/{doctor_id}/apppointments", response_model=List[Any],
-        status_code=status.HTTP_200_OK, dependencies=[Depends(user_auth_guard), Depends(enforce_hospital_privilege)]
+        status_code=status.HTTP_200_OK, 
+        dependencies=[
+            Depends(user_auth_guard), 
+            Depends(require_role(
+                UserRoles.HOS, UserRoles.SUPERADMIN, UserRoles.ADMIN, UserRoles.MOD,
+                UserRoles.SUPPORT
+            ))
+        ]
     )
 async def get_doctor_appointments(
     doctor_id: int,

@@ -6,8 +6,3 @@ class UserUpdateForm(BaseModel):
     first_name: Optional[str]
     last_name: Optional[str]
     phone_number: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=20, pattern=r"^\+?\d{10,15}$")] | None
-
-class PassResetForm(BaseModel):
-    curr_password: str
-    new_password: str
-    confirm_password: str

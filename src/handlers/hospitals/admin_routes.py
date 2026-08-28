@@ -7,7 +7,7 @@ from ...database.sessions import create_session
 
 # security imports
 from ...auth.dependencies import (
-    enforce_hospital_privilege,
+    require_role,
     user_auth_guard #, get_tenant_id, verify_tenant
 )
 from .models import AppointmentFilter
@@ -15,7 +15,7 @@ from .models import AppointmentFilter
 # utility imports
 from ...auth.service import AuthService
 from .service import HospitalService
-from ...auth.models import SignUpForm
+from ...auth.models import SignUpForm, UserRoles
 from ...database.models.response_models import UserResponse, HospitalResponse, AppointmentResponse
 from typing import List
 
@@ -68,22 +68,13 @@ async def get_hospital_admin(
             detail="malformed request. access denied"
         )
 
-@secure_router.get("/my_hospital", response_model=HospitalResponse,
-        dependencies=[Depends(enforce_hospital_privilege)]        
-    )
+@secure_router.get("/my_hospital", response_model=HospitalResponse)
 async def get_my_hospital(
-    request: Request,
+    admin: UserResponse = Depends(require_role(UserRoles.HOS)),
     session: Session = Depends(create_session)
 ) -> HospitalResponse | None:
     try:
-        current_user: UserResponse = request.state.user
-        if current_user.is_superuser:
-            raise HTTPException(
-                detail="invalid request. no hospital found",
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        output = HospitalService(session).get_hospital_by_id(current_user.hospital_id)
+        output = HospitalService(session).get_hospital_by_id(admin.hospital_id)
         if output is None:
             raise HTTPException(
                 detail="invalid request. no hospital found",
@@ -97,21 +88,23 @@ async def get_my_hospital(
             detail="could not fetch admin hospital"
         )
 
-@secure_router.get("/my_hospital/appointments", response_model=List[AppointmentResponse], 
-            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)])
+@secure_router.get(
+    "/my_hospital/appointments", 
+    response_model=List[AppointmentResponse], 
+    status_code=status.HTTP_200_OK)
 async def get_my_hospital_appointments(
-    request: Request,
+    admin: UserResponse = Depends(require_role(UserRoles.HOS)),
     filters: AppointmentFilter = Depends(),
     session: Session = Depends(create_session)
 ) -> List[AppointmentResponse]:
     try:
-        if request.state.user.hospital_id is None:
+        if admin.hospital_id is None:
             raise HTTPException(
                 detail="invalid request. no hospital found",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
         return HospitalService(session).get_hospital_appointments(
-            hospital_id = request.state.user.hospital_id,
+            hospital_id = admin.hospital_id,
             filters = filters.model_dump(exclude_none=True)
         )
     except:
@@ -120,11 +113,15 @@ async def get_my_hospital_appointments(
             detail="error fetching hospital appointments"
         )
     
-@secure_router.put("/add/{doctor_id}", response_model=None, 
-            status_code=status.HTTP_200_OK, dependencies=[Depends(enforce_hospital_privilege)])
+@secure_router.put(
+    "/add/{doctor_id}", 
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+    description="ONLY FOR HOS-ADMIN"    
+)
 async def add_doctor(
-    request: Request,
     doctor_id: int,
+    admin: UserResponse = Depends(require_role(UserRoles.HOS)),
     session: Session = Depends(create_session)
 ) -> None:
     """
@@ -134,13 +131,13 @@ async def add_doctor(
         create a new doctor page
     """
     try:
-        if request.state.user.hospital_id is None:
+        if admin.hospital_id is None:
             raise HTTPException(
                 detail="invalid request. no hospital found",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
         HospitalService(session).add_doctor(
-            request.state.user.hospital_id, doctor_id
+            admin.hospital_id, doctor_id
         )
     except NameError:
         raise HTTPException(
@@ -152,6 +149,42 @@ async def add_doctor(
             detail="method not allowed",
             status_code=status.HTTP_400_BAD_REQUEST
         )
+
+
+@secure_router.put(
+    "/{hospital_id}/add/{doctor_id}", 
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+    description="ONLY FOR ADMINS. Addition of doctor to any hospital"
+)
+async def add_doctor_to_hos(
+    hospital_id: int,
+    doctor_id: int,
+    admin: UserResponse = Depends(require_role(UserRoles.SUPERADMIN, UserRoles.ADMIN)),
+    session: Session = Depends(create_session)
+) -> None:
+    """
+        this method is only for admins !!
+        adds an existing doctor to a new organistaion(hos/clinic)
+        if the doctor already belongs to some hos/clinic, this throws error 400
+        if the doctor id is not valid this throws a error 404 -> redirect the user to 
+        create a new doctor page
+    """
+    try:
+        HospitalService(session).add_doctor(
+            hospital_id, doctor_id
+        )
+    except NameError:
+        raise HTTPException(
+            detail="invalid credentials entered",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    except ValueError:
+        raise HTTPException(
+            detail="method not allowed",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
 
 
 router.include_router(secure_router)

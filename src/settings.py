@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     
     # API settings
     api_prefix: str = "/api/v1"
+
+    # AWS configuration keys
+    aws_access_token: str = ""
+    aws_secret_key: str = ""
+    aws_region: str = "ap-south-2"
+    ec2_instance_type: str = "t2.micro"
     
     model_config = SettingsConfigDict(
         env_file=".env.dev",
